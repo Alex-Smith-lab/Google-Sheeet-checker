@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Production Task Workspace</title>
+  <style>
+    :root {
+      --bg-main: #f8fafc;
+      --bg-card: #ffffff;
+      --border-color: #cbd5e1;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+      --accent: #1a73e8;
+      --accent-hover: #1557b0;
+      --danger: #d93025;
+      --danger-hover: #b0231a;
+      --success: #188038;
+      --success-hover: #13652b;
+      --grid-header-bg: #1a73e8;
+      --grid-header-text: #ffffff;
+      --strikethrough-row-bg: rgba(217, 48, 37, 0.15);
+      --strikethrough-row-text: #d93025;
+      --spacer-col-bg: #000000;
+    }
+
+    [data-theme="dark"] {
+      --bg-main: #0f172a;
+      --bg-card: #1e293b;
+      --border-color: #475569;
+      --text-dark: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --grid-header-bg: #1e40af;
+      --grid-header-text: #ffffff;
+      --strikethrough-row-bg: rgba(239, 68, 68, 0.25);
+      --strikethrough-row-text: #f87171;
+      --spacer-col-bg: #000000;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-main);
+      color: var(--text-dark);
+      font-size: 12px;
+    }
+
+    .offline-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.95);
+      color: #ffffff;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .offline-card {
+      background: #1e293b;
+      padding: 32px;
+      border-radius: 8px;
+      border: 1px solid #ef4444;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .navbar {
+      background: var(--bg-card);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .navbar h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-dark);
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .main-layout {
+      display: flex;
+      padding: 12px;
+      gap: 12px;
+      box-sizing: border-box;
+      height: calc(100vh - 45px);
+    }
+
+    .sidebar {
+      width: 340px;
+      min-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .content-area {
+      flex: 1;
+      background: var(--bg-card);
+      border-radius: 6px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: 6px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    .card-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin: 0 0 10px 0;
+      font-weight: 700;
+    }
+
+    .form-group { margin-bottom: 10px; }
+    .form-group label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+
+    input[type="text"], select, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font-size: 12px;
+      background-color: var(--bg-card);
+      color: var(--text-dark);
+    }
+
+    textarea { height: 80px; font-family: monospace; resize: vertical; }
+    .hidden { display: none !important; }
+
+    button {
+      font-family: inherit; border-radius: 4px; font-size: 12px; font-weight: 500;
+      padding: 8px; cursor: pointer; width: 100%; border: none;
+    }
+    .btn-primary { background-color: var(--accent); color: white; }
+    .btn-primary:hover { background-color: var(--accent-hover); }
+    .btn-danger { background-color: transparent; color: var(--danger); margin-top: 6px; padding: 4px; font-size: 11px; }
+    .btn-danger:hover { background-color: rgba(217, 48, 37, 0.08); }
+    
+    .btn-back {
+      background: transparent; border: 1px solid var(--border-color);
+      color: var(--text-dark); width: auto; padding: 4px 10px; font-size: 11px;
+    }
+
+    .action-controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 10px;
+    }
+    .export-buttons-group { display: flex; gap: 6px; }
+    .btn-export-gsheet { background-color: var(--success); color: white; width: auto; padding: 5px 12px; font-size: 11px; }
+    .btn-export-gsheet:hover { background-color: var(--success-hover); }
+    .btn-export-csv { background-color: #475569; color: white; width: auto; padding: 5px 12px; font-size: 11px; }
+
+    /* Assignee Selection Pills */
+    .assignee-container {
+      margin-bottom: 10px;
+      padding: 8px;
+      background: var(--bg-main);
+      border: 1px dashed var(--border-color);
+      border-radius: 4px;
+    }
+    .assignee-pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .assignee-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .assignee-pill:hover, .assignee-pill.selected {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* Workbook Tree */
+    .tree-node { border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 8px; background: var(--bg-card); }
+    .tree-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--bg-main); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border-color); }
+    .tree-children { padding: 4px; }
+    
+    .tree-item { 
+      padding: 6px 8px; 
+      border-radius: 3px; 
+      cursor: pointer; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      font-size: 11px; 
+      margin-bottom: 2px; 
+      color: var(--text-dark); 
+    }
+    .tree-item:hover, .tree-item.active { background-color: rgba(26, 115, 232, 0.12); color: var(--accent); font-weight: 600; }
+    
+    .tree-item-meta { display: flex; align-items: center; gap: 6px; }
+    .count-badge { font-size: 10px; background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 8px; }
+    [data-theme="dark"] .count-badge { background: #334155; color: #f8fafc; }
+    
+    .btn-delete-node { background: transparent; color: var(--text-muted); padding: 0 4px; width: auto; font-size: 11px; }
+    .btn-delete-node:hover { color: var(--danger); }
+
+    /* Loader Overlay */
+    .loader-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--bg-card); opacity: 0.95; display: flex;
+      flex-direction: column; align-items: center; justify-content: center; z-index: 10;
+    }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border-color); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    .loader-text { margin-top: 12px; font-size: 12px; font-weight: 500; color: var(--text-dark); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Metrics Grid */
+    .metrics-banner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+    .metric-card { background: var(--bg-main); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 4px; }
+    .metric-card h4 { margin: 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
+    .metric-card div { font-size: 14px; font-weight: 600; margin-top: 2px; }
+
+    /* Data Table View */
+    .table-wrapper { 
+      flex: 1;
+      overflow: auto; 
+      border: 1px solid var(--border-color); 
+      background: #ffffff;
+    }
+    [data-theme="dark"] .table-wrapper { background: #0f172a; }
+
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      font-size: 11px; 
+      table-layout: auto;
+    }
+
+    th { 
+      background: var(--grid-header-bg); 
+      color: var(--grid-header-text);
+      padding: 6px 8px; 
+      font-weight: 600;
+      border-right: 1px solid var(--border-color);
+      border-bottom: 2px solid var(--border-color); 
+      white-space: nowrap; 
+      text-align: left;
+    }
+
+    td { 
+      padding: 4px 8px; 
+      border-right: 1px solid var(--border-color); 
+      border-bottom: 1px solid var(--border-color); 
+      color: var(--text-dark);
+      white-space: nowrap; 
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    td.spacer-col, th.spacer-col {
+      background-color: var(--spacer-col-bg) !important;
+      width: 16px;
+      min-width: 16px;
+      padding: 0;
+    }
+
+    tr:hover td { background-color: rgba(26, 115, 232, 0.05); }
+
+    tr.row-strikethrough td {
+      background-color: var(--strikethrough-row-bg) !important;
+      text-decoration: line-through !important;
+      color: var(--strikethrough-row-text) !important;
+    }
+
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 250px;
+    }
+    .splash-text { font-size: 12px; color: var(--text-muted); font-style: italic; text-align: center; max-width: 320px; }
+  </style>
+</head>
+<body>
+
+  <div class="offline-overlay hidden" id="global-offline-blocker">
+    <div class="offline-card">
+      <h2 style="color:#ef4444; margin:0 0 10px 0;">Workspace Offline</h2>
+      <p style="color:#94a3b8; font-size:12px;">Active internet connection required to maintain sync stability.</p>
+    </div>
+  </div>
+
+  <div class="navbar">
+    <h1>SHEET TASK EXTRACTOR PRO</h1>
+    <div>
+      <button class="theme-toggle" id="theme-toggle-btn">◑ Dark Mode</button>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-title">Data Ingestion Engine</div>
+        
+        <div class="form-group">
+          <label for="paste-input">Paste Google Sheet Data Stream</label>
+          <textarea id="paste-input" placeholder="Paste data directly from Google Sheets here..."></textarea>
+        </div>
+
+        <div id="assignee-selector-box" class="assignee-container hidden">
+          <label style="font-size:11px; font-weight:700;">Detected Assignees in Stream:</label>
+          <div id="assignee-pills-list" class="assignee-pill-group"></div>
+        </div>
+
+        <div class="form-group">
+          <label for="main-sheet-select">Main Folder (Auto-generated/Select)</label>
+          <select id="main-sheet-select">
+            <option value="" disabled selected>-- Select Main Folder --</option>
+            <option value="__NEW__">➕ Add Custom Folder</option>
+          </select>
+        </div>
+
+        <div class="form-group hidden" id="new-main-input-container">
+          <label for="new-main-sheet-name">Custom Folder Name</label>
+          <input type="text" id="new-main-sheet-name" placeholder="Type folder name...">
+        </div>
+
+        <div class="form-group">
+          <label for="sub-sheet-input">Sub Route / Route Identifier</label>
+          <input type="text" id="sub-sheet-input" placeholder="e.g., Route 49 Inbound">
+        </div>
+
+        <button class="btn-primary" id="process-entry-btn">Process & Store Selected Data</button>
+        <button class="btn-danger" id="clear-db-btn">Wipe Storage Memory</button>
+      </div>
+
+      <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="card-title">Workbook Directory</div>
+        <div id="workbook-tree-container" style="flex:1; overflow-y:auto;">
+          <div style="padding:10px; color:var(--text-muted);">No datasets loaded.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-area">
+      <div class="loader-overlay hidden" id="view-loader-overlay">
+        <div class="spinner"></div>
+        <div class="loader-text" id="view-loader-text">Loading dataset...</div>
+      </div>
+
+      <div id="view-navigation-row" class="hidden action-controls-row">
+        <button class="btn-back" id="btn-close-view">✕ Clear Active Workspace</button>
+        <div class="export-buttons-group">
+          <button class="btn-export-gsheet" id="btn-create-gsheet">🟢 Open Google Sheet</button>
+          <button class="btn-export-csv" id="btn-export-csv">💾 Export CSV</button>
+        </div>
+      </div>
+
+      <div class="metrics-banner">
+        <div class="metric-card">
+          <h4>Total Database Volume</h4>
+          <div id="stat-grand-total">0 Rows</div>
+        </div>
+        <div class="metric-card">
+          <h4>Active Folder</h4>
+          <div id="stat-main-total">0 Rows</div>
+        </div>
+        <div class="metric-card">
+          <h4>Active Sub Route</h4>
+          <div id="stat-sub-total">0 Rows</div>
+        </div>
+        <div class="metric-card">
+          <h4>Strikethrough Rows</h4>
+          <div id="stat-strike-total" style="color:var(--danger);">0 Rows</div>
+        </div>
+      </div>
+
+      <h2 id="view-title" style="font-size:13px; font-weight:600; margin:0 0 4px 0;">Active Workspace View</h2>
+      <div id="view-range-indicator" style="font-size:11px; color:var(--text-muted); margin-bottom:8px;"></div>
+      
+      <div class="table-wrapper" id="grid-output-view">
+        <div class="splash-container">
+          <div class="splash-text">Paste sheet data stream or select a subfolder node from the workbook index to mount sheet records.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
