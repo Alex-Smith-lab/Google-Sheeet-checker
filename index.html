@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sheet Task Extractor Pro - Direct Ingest Workspace</title>
+
   <style>
     :root {
       --bg-main: #f8fafc;
@@ -40,7 +41,8 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 0;
       background-color: var(--bg-main);
@@ -50,7 +52,10 @@
 
     .offline-overlay {
       position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       background: rgba(15, 23, 42, 0.95);
       color: #ffffff;
       z-index: 10000;
@@ -77,7 +82,13 @@
       align-items: center;
       border-bottom: 1px solid var(--border-color);
     }
-    .navbar h1 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
+
+    .navbar h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
 
     .theme-toggle {
       background: none;
@@ -134,10 +145,20 @@
       font-weight: 700;
     }
 
-    .form-group { margin-bottom: 10px; }
-    .form-group label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+    .form-group {
+      margin-bottom: 10px;
+    }
 
-    input[type="text"], select, textarea {
+    .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    input[type="text"],
+    select,
+    textarea {
       width: 100%;
       box-sizing: border-box;
       border: 1px solid var(--border-color);
@@ -148,21 +169,60 @@
       color: var(--text-dark);
     }
 
-    textarea { height: 80px; font-family: monospace; resize: vertical; }
-    .hidden { display: none !important; }
+    textarea {
+      height: 80px;
+      font-family: monospace;
+      resize: vertical;
+    }
+
+    .hidden {
+      display: none !important;
+    }
 
     button {
-      font-family: inherit; border-radius: 4px; font-size: 12px; font-weight: 500;
-      padding: 8px; cursor: pointer; width: 100%; border: none;
+      font-family: inherit;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px;
+      cursor: pointer;
+      width: 100%;
+      border: none;
     }
-    .btn-primary { background-color: var(--accent); color: white; }
-    .btn-primary:hover { background-color: var(--accent-hover); }
-    .btn-danger { background-color: transparent; color: var(--danger); margin-top: 6px; padding: 4px; font-size: 11px; }
-    .btn-danger:hover { background-color: rgba(217, 48, 37, 0.08); }
-    
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .btn-primary {
+      background-color: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-danger {
+      background-color: transparent;
+      color: var(--danger);
+      margin-top: 6px;
+      padding: 4px;
+      font-size: 11px;
+    }
+
+    .btn-danger:hover {
+      background-color: rgba(217, 48, 37, 0.08);
+    }
+
     .btn-back {
-      background: transparent; border: 1px solid var(--border-color);
-      color: var(--text-dark); width: auto; padding: 4px 10px; font-size: 11px;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-dark);
+      width: auto;
+      padding: 4px 10px;
+      font-size: 11px;
     }
 
     .action-controls-row {
@@ -172,10 +232,31 @@
       margin-bottom: 10px;
       gap: 10px;
     }
-    .export-buttons-group { display: flex; gap: 6px; }
-    .btn-export-gsheet { background-color: var(--success); color: white; width: auto; padding: 5px 12px; font-size: 11px; }
-    .btn-export-gsheet:hover { background-color: var(--success-hover); }
-    .btn-export-csv { background-color: #475569; color: white; width: auto; padding: 5px 12px; font-size: 11px; }
+
+    .export-buttons-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-export-gsheet {
+      background-color: var(--success);
+      color: white;
+      width: auto;
+      padding: 5px 12px;
+      font-size: 11px;
+    }
+
+    .btn-export-gsheet:hover {
+      background-color: var(--success-hover);
+    }
+
+    .btn-export-csv {
+      background-color: #475569;
+      color: white;
+      width: auto;
+      padding: 5px 12px;
+      font-size: 11px;
+    }
 
     .assignee-container {
       margin-bottom: 10px;
@@ -184,12 +265,14 @@
       border: 1px dashed var(--border-color);
       border-radius: 4px;
     }
+
     .assignee-pill-group {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin-top: 6px;
     }
+
     .assignee-pill {
       background: var(--bg-card);
       border: 1px solid var(--accent);
@@ -201,94 +284,365 @@
       font-weight: 600;
       transition: all 0.2s ease;
     }
-    .assignee-pill:hover, .assignee-pill.selected {
+
+    .assignee-pill:hover,
+    .assignee-pill.selected {
       background: var(--accent);
       color: white;
     }
 
-    .tree-node { border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 8px; background: var(--bg-card); }
-    .tree-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--bg-main); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border-color); }
-    .tree-children { padding: 4px; }
-    
-    .tree-item { 
-      padding: 6px 8px; 
-      border-radius: 3px; 
-      cursor: pointer; 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      font-size: 11px; 
-      margin-bottom: 2px; 
-      color: var(--text-dark); 
+    .tree-node {
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      margin-bottom: 8px;
+      background: var(--bg-card);
     }
-    .tree-item:hover, .tree-item.active { background-color: rgba(26, 115, 232, 0.12); color: var(--accent); font-weight: 600; }
-    
-    .tree-item-meta { display: flex; align-items: center; gap: 6px; }
-    .count-badge { font-size: 10px; background: #e2e8f0; color: #334155; padding: 1px 6px; border-radius: 8px; }
-    [data-theme="dark"] .count-badge { background: #334155; color: #f8fafc; }
-    
-    .btn-delete-node { background: transparent; color: var(--text-muted); padding: 0 4px; width: auto; font-size: 11px; }
-    .btn-delete-node:hover { color: var(--danger); }
+
+    .tree-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: var(--bg-main);
+      font-weight: 600;
+      font-size: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tree-children {
+      padding: 4px;
+    }
+
+    .tree-item {
+      padding: 6px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 2px;
+      color: var(--text-dark);
+    }
+
+    .tree-item:hover,
+    .tree-item.active {
+      background-color: rgba(26, 115, 232, 0.12);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tree-item-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .count-badge {
+      font-size: 10px;
+      background: #e2e8f0;
+      color: #334155;
+      padding: 1px 6px;
+      border-radius: 8px;
+    }
+
+    [data-theme="dark"] .count-badge {
+      background: #334155;
+      color: #f8fafc;
+    }
+
+    .btn-delete-node {
+      background: transparent;
+      color: var(--text-muted);
+      padding: 0 4px;
+      width: auto;
+      font-size: 11px;
+    }
+
+    .btn-delete-node:hover {
+      color: var(--danger);
+    }
+
+    /* ================================
+       PROFESSIONAL CENTER LOADER
+       ================================ */
 
     .loader-overlay {
-      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      background: var(--bg-card); opacity: 0.95; display: flex;
-      flex-direction: column; align-items: center; justify-content: center; z-index: 10;
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.96);
+      background: color-mix(
+        in srgb,
+        var(--bg-card) 96%,
+        transparent
+      );
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
+      z-index: 100;
     }
-    .spinner { width: 32px; height: 32px; border: 3px solid var(--border-color); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
-    .loader-text { margin-top: 12px; font-size: 12px; font-weight: 500; color: var(--text-dark); }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
-    .metrics-banner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
-    .metric-card { background: var(--bg-main); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 4px; }
-    .metric-card h4 { margin: 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
-    .metric-card div { font-size: 14px; font-weight: 600; margin-top: 2px; }
+    .loader-panel {
+      width: min(410px, calc(100% - 36px));
+      padding: 22px 24px;
+      box-sizing: border-box;
+      text-align: center;
 
-    .table-wrapper { 
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--bg-card);
+
+      box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
+    }
+
+    .loader-orbit {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+
+      border: 3px solid var(--border-color);
+      border-top-color: var(--accent);
+      border-right-color: var(--accent);
+
+      animation: loaderSpin 0.72s linear infinite;
+      position: relative;
+    }
+
+    .loader-orbit::after {
+      content: "";
+      position: absolute;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 12px rgba(26, 115, 232, 0.45);
+    }
+
+    .loader-success {
+      display: none;
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 12px;
+      border-radius: 50%;
+
+      align-items: center;
+      justify-content: center;
+
+      border: 2px solid var(--success);
+      color: var(--success);
+
+      font-size: 27px;
+      font-weight: 700;
+    }
+
+    .loader-overlay.success-state .loader-orbit {
+      display: none;
+    }
+
+    .loader-overlay.success-state .loader-success {
+      display: flex;
+    }
+
+    .loader-kicker {
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .loader-title {
+      color: var(--text-dark);
+      font-size: 12px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .loader-detail {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 5px;
+      min-height: 15px;
+    }
+
+    .loader-progress {
+      height: 4px;
+      margin: 14px 0 13px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--border-color);
+    }
+
+    .loader-progress-bar {
+      height: 100%;
+      width: 5%;
+      background: var(--accent);
+      transition: width 0.28s ease;
+    }
+
+    .loader-steps {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+    }
+
+    .loader-step {
+      font-size: 9px;
+      color: var(--text-muted);
+      opacity: 0.55;
+    }
+
+    .loader-step-dot {
+      width: 7px;
+      height: 7px;
+      margin: 0 auto 4px;
+      border-radius: 50%;
+      background: var(--border-color);
+    }
+
+    .loader-step.active {
+      color: var(--accent);
+      opacity: 1;
+      font-weight: 600;
+    }
+
+    .loader-step.active .loader-step-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.10);
+    }
+
+    .loader-step.done {
+      color: var(--success);
+      opacity: 1;
+    }
+
+    .loader-step.done .loader-step-dot {
+      background: var(--success);
+    }
+
+    .loader-step.success {
+      color: var(--success);
+      opacity: 1;
+      font-weight: 600;
+    }
+
+    .loader-step.success .loader-step-dot {
+      background: var(--success);
+      box-shadow: 0 0 0 4px rgba(24, 128, 56, 0.10);
+    }
+
+    .loader-route {
+      display: inline-flex;
+      max-width: 100%;
+      box-sizing: border-box;
+      margin-top: 12px;
+      padding: 4px 8px;
+
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+
+      color: var(--text-muted);
+      font-size: 10px;
+
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @keyframes loaderSpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .metrics-banner {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .metric-card {
+      background: var(--bg-main);
+      border: 1px solid var(--border-color);
+      padding: 8px 10px;
+      border-radius: 4px;
+    }
+
+    .metric-card h4 {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .metric-card div {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .table-wrapper {
       flex: 1;
-      overflow: auto; 
-      border: 1px solid var(--border-color); 
+      overflow: auto;
+      border: 1px solid var(--border-color);
       background: #ffffff;
     }
-    [data-theme="dark"] .table-wrapper { background: #0f172a; }
 
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      font-size: 11px; 
+    [data-theme="dark"] .table-wrapper {
+      background: #0f172a;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
       table-layout: auto;
     }
 
-    th { 
-      background: var(--grid-header-bg); 
+    th {
+      background: var(--grid-header-bg);
       color: var(--grid-header-text);
-      padding: 6px 8px; 
+      padding: 6px 8px;
       font-weight: 600;
       border-right: 1px solid var(--border-color);
-      border-bottom: 2px solid var(--border-color); 
-      white-space: nowrap; 
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
       text-align: left;
     }
 
-    td { 
-      padding: 4px 8px; 
-      border-right: 1px solid var(--border-color); 
-      border-bottom: 1px solid var(--border-color); 
+    td {
+      padding: 4px 8px;
+      border-right: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
       color: var(--text-dark);
-      white-space: nowrap; 
+      white-space: nowrap;
       max-width: 260px;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    td.spacer-col, th.spacer-col {
+    td.spacer-col,
+    th.spacer-col {
       background-color: var(--spacer-col-bg) !important;
       width: 16px;
       min-width: 16px;
       padding: 0;
     }
 
-    tr:hover td { background-color: rgba(26, 115, 232, 0.05); }
+    tr:hover td {
+      background-color: rgba(26, 115, 232, 0.05);
+    }
 
     tr.row-strikethrough td {
       background-color: var(--strikethrough-row-bg) !important;
@@ -304,113 +658,365 @@
       height: 100%;
       min-height: 250px;
     }
-    .splash-text { font-size: 12px; color: var(--text-muted); font-style: italic; text-align: center; max-width: 320px; }
+
+    .splash-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      max-width: 320px;
+    }
   </style>
 </head>
+
 <body>
 
   <div class="offline-overlay hidden" id="global-offline-blocker">
     <div class="offline-card">
-      <h2 style="color:#ef4444; margin:0 0 10px 0;">Workspace Offline</h2>
-      <p style="color:#94a3b8; font-size:12px;">Active internet connection required to maintain sync stability.</p>
+      <h2 style="color:#ef4444; margin:0 0 10px 0;">
+        Workspace Offline
+      </h2>
+
+      <p style="color:#94a3b8; font-size:12px;">
+        Active internet connection required to maintain sync stability.
+      </p>
     </div>
   </div>
 
   <div class="navbar">
     <h1>SHEET TASK EXTRACTOR PRO (DIRECT INGEST)</h1>
+
     <div>
-      <button class="theme-toggle" id="theme-toggle-btn">◑ Dark Mode</button>
+      <button class="theme-toggle" id="theme-toggle-btn">
+        ◑ Dark Mode
+      </button>
     </div>
   </div>
 
   <div class="main-layout">
+
     <div class="sidebar">
+
       <div class="card">
-        <div class="card-title">Data Ingestion Engine</div>
-        
-        <div class="form-group">
-          <label for="paste-input">Paste Google Sheet Data Stream</label>
-          <textarea id="paste-input" placeholder="Paste data directly from Google Sheets here..."></textarea>
-        </div>
 
-        <div id="assignee-selector-box" class="assignee-container hidden">
-          <label style="font-size:11px; font-weight:700;">Filter Stream by Assignee:</label>
-          <div id="assignee-pills-list" class="assignee-pill-group"></div>
+        <div class="card-title">
+          Data Ingestion Engine
         </div>
 
         <div class="form-group">
-          <label for="main-sheet-input">Main Folder / Sheet Name</label>
-          <input type="text" id="main-sheet-input" placeholder="Type or paste folder name manually...">
+          <label for="paste-input">
+            Paste Google Sheet Data Stream
+          </label>
+
+          <textarea
+            id="paste-input"
+            placeholder="Paste data directly from Google Sheets here..."
+          ></textarea>
+        </div>
+
+        <div
+          id="assignee-selector-box"
+          class="assignee-container hidden"
+        >
+          <label style="font-size:11px; font-weight:700;">
+            Filter Stream by Assignee:
+          </label>
+
+          <div
+            id="assignee-pills-list"
+            class="assignee-pill-group"
+          ></div>
         </div>
 
         <div class="form-group">
-          <label for="main-sheet-select" style="font-weight: 400; color: var(--text-muted);">or Pick Existing Folder from Storage</label>
+
+          <label for="main-sheet-input">
+            Main Folder / Sheet Name
+          </label>
+
+          <input
+            type="text"
+            id="main-sheet-input"
+            placeholder="Type or paste folder name manually..."
+          >
+        </div>
+
+        <div class="form-group">
+
+          <label
+            for="main-sheet-select"
+            style="font-weight:400;color:var(--text-muted);"
+          >
+            or Pick Existing Folder from Storage
+          </label>
+
           <select id="main-sheet-select">
-            <option value="" selected>-- Select Existing Folder --</option>
+            <option value="" selected>
+              -- Select Existing Folder --
+            </option>
           </select>
+
         </div>
 
         <div class="form-group">
-          <label for="sub-sheet-input">Sub Route / Route Identifier</label>
-          <input type="text" id="sub-sheet-input" placeholder="e.g., Route 49 Inbound">
+
+          <label for="sub-sheet-input">
+            Sub Route / Route Identifier
+          </label>
+
+          <input
+            type="text"
+            id="sub-sheet-input"
+            placeholder="e.g., Route 49 Inbound"
+          >
+
         </div>
 
-        <button class="btn-primary" id="process-entry-btn">Process & Store Selected Data</button>
-        <button class="btn-danger" id="clear-db-btn">Wipe Storage Memory</button>
+        <button
+          class="btn-primary"
+          id="process-entry-btn"
+        >
+          Process & Store Selected Data
+        </button>
+
+        <button
+          class="btn-danger"
+          id="clear-db-btn"
+        >
+          Wipe Storage Memory
+        </button>
+
       </div>
 
-      <div class="card" style="flex: 1; display: flex; flex-direction: column;">
-        <div class="card-title">Workbook Directory</div>
-        <div id="workbook-tree-container" style="flex:1; overflow-y:auto;">
-          <div style="padding:10px; color:var(--text-muted);">No datasets loaded.</div>
+      <div
+        class="card"
+        style="flex:1;display:flex;flex-direction:column;"
+      >
+
+        <div class="card-title">
+          Workbook Directory
         </div>
+
+        <div
+          id="workbook-tree-container"
+          style="flex:1;overflow-y:auto;"
+        >
+          <div style="padding:10px;color:var(--text-muted);">
+            No datasets loaded.
+          </div>
+        </div>
+
       </div>
+
     </div>
 
     <div class="content-area">
-      <div class="loader-overlay hidden" id="view-loader-overlay">
-        <div class="spinner"></div>
-        <div class="loader-text" id="view-loader-text">Loading dataset...</div>
+
+      <!-- PROFESSIONAL LOADER -->
+
+      <div
+        class="loader-overlay hidden"
+        id="view-loader-overlay"
+        aria-live="polite"
+      >
+
+        <div class="loader-panel">
+
+          <div
+            class="loader-orbit"
+            aria-hidden="true"
+          ></div>
+
+          <div
+            class="loader-success"
+            aria-hidden="true"
+          >
+            ✓
+          </div>
+
+          <div
+            class="loader-kicker"
+            id="view-loader-kicker"
+          >
+            DATA WORKFLOW
+          </div>
+
+          <h3
+            class="loader-title"
+            id="view-loader-text"
+          >
+            Reading data
+          </h3>
+
+          <div
+            class="loader-detail"
+            id="view-loader-detail"
+          >
+            Preparing the selected data...
+          </div>
+
+          <div class="loader-progress">
+            <div
+              class="loader-progress-bar"
+              id="view-loader-progress"
+            ></div>
+          </div>
+
+          <div class="loader-steps">
+
+            <div
+              class="loader-step active"
+              data-step="reading"
+            >
+              <div class="loader-step-dot"></div>
+              Reading
+            </div>
+
+            <div
+              class="loader-step"
+              data-step="analysing"
+            >
+              <div class="loader-step-dot"></div>
+              Analysing
+            </div>
+
+            <div
+              class="loader-step"
+              data-step="arranging"
+            >
+              <div class="loader-step-dot"></div>
+              Arranging
+            </div>
+
+            <div
+              class="loader-step"
+              data-step="storing"
+            >
+              <div class="loader-step-dot"></div>
+              Storing
+            </div>
+
+            <div
+              class="loader-step"
+              data-step="success"
+            >
+              <div class="loader-step-dot"></div>
+              Success
+            </div>
+
+          </div>
+
+          <div
+            class="loader-route hidden"
+            id="loader-route-name"
+          ></div>
+
+        </div>
+
       </div>
 
-      <div id="view-navigation-row" class="hidden action-controls-row">
-        <button class="btn-back" id="btn-close-view">✕ Clear Active Workspace</button>
+      <!-- WORKSPACE CONTROLS -->
+
+      <div
+        id="view-navigation-row"
+        class="hidden action-controls-row"
+      >
+
+        <button
+          class="btn-back"
+          id="btn-close-view"
+        >
+          ✕ Clear Active Workspace
+        </button>
+
         <div class="export-buttons-group">
-          <button class="btn-export-gsheet" id="btn-create-gsheet">🟢 Open Google Sheet</button>
-          <button class="btn-export-csv" id="btn-export-csv">💾 Export CSV</button>
+
+          <button
+            class="btn-export-gsheet"
+            id="btn-create-gsheet"
+          >
+            🟢 Open Google Sheet
+          </button>
+
+          <button
+            class="btn-export-csv"
+            id="btn-export-csv"
+          >
+            💾 Export CSV
+          </button>
+
         </div>
+
       </div>
+
+      <!-- METRICS -->
 
       <div class="metrics-banner">
+
         <div class="metric-card">
           <h4>Total Database Volume</h4>
-          <div id="stat-grand-total">0 Rows</div>
+          <div id="stat-grand-total">
+            0 Rows
+          </div>
         </div>
+
         <div class="metric-card">
           <h4>Active Folder</h4>
-          <div id="stat-main-total">0 Rows</div>
+          <div id="stat-main-total">
+            0 Rows
+          </div>
         </div>
+
         <div class="metric-card">
           <h4>Active Sub Route</h4>
-          <div id="stat-sub-total">0 Rows</div>
+          <div id="stat-sub-total">
+            0 Rows
+          </div>
         </div>
+
         <div class="metric-card">
           <h4>Strikethrough Rows</h4>
-          <div id="stat-strike-total" style="color:var(--danger);">0 Rows</div>
+          <div
+            id="stat-strike-total"
+            style="color:var(--danger);"
+          >
+            0 Rows
+          </div>
         </div>
+
       </div>
 
-      <h2 id="view-title" style="font-size:13px; font-weight:600; margin:0 0 4px 0;">Active Workspace View</h2>
-      <div id="view-range-indicator" style="font-size:11px; color:var(--text-muted); margin-bottom:8px;"></div>
-      
-      <div class="table-wrapper" id="grid-output-view">
+      <h2
+        id="view-title"
+        style="font-size:13px;font-weight:600;margin:0 0 4px 0;"
+      >
+        Active Workspace View
+      </h2>
+
+      <div
+        id="view-range-indicator"
+        style="font-size:11px;color:var(--text-muted);margin-bottom:8px;"
+      ></div>
+
+      <div
+        class="table-wrapper"
+        id="grid-output-view"
+      >
+
         <div class="splash-container">
-          <div class="splash-text">Paste sheet data stream or select a subfolder node from the workbook index to mount sheet records.</div>
+          <div class="splash-text">
+            Paste sheet data stream or select a subfolder node from
+            the workbook index to mount sheet records.
+          </div>
         </div>
+
       </div>
+
     </div>
+
   </div>
 
   <script src="app.js"></script>
+
 </body>
 </html>
