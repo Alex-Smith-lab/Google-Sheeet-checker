@@ -50,6 +50,7 @@ let detectedAssignees = [];
 let selectedAssignee = "";
 let parsedParsedRowsStream = [];
 let detectedAssigneeColIdx = -1;
+let detectedHeaderRowIdx = -1;
 
 function verifyOnlineStatus() {
   const blocker = document.getElementById('global-offline-blocker');
@@ -65,7 +66,6 @@ function verifyOnlineStatus() {
 document.addEventListener('DOMContentLoaded', () => {
   verifyOnlineStatus();
 
-  // Load from Native Web LocalStorage
   const savedData = localStorage.getItem('projectDatabase');
   const savedTheme = localStorage.getItem('appTheme');
   const savedMain = localStorage.getItem('activeMainSheet');
@@ -112,6 +112,7 @@ document.getElementById('paste-input').addEventListener('input', () => {
   parsePastedStreamForAssignees();
 });
 
+// Dynamic scanning across all rows to locate shifted headers and assignee columns
 function parsePastedStreamForAssignees() {
   const rawText = document.getElementById('paste-input').value;
   const container = document.getElementById('assignee-selector-box');
@@ -119,6 +120,7 @@ function parsePastedStreamForAssignees() {
   
   if (!rawText.trim()) {
     container.classList.add('hidden');
+    selectedAssignee = "";
     return;
   }
 
@@ -128,22 +130,29 @@ function parsePastedStreamForAssignees() {
   parsedParsedRowsStream = lines.map(line => line.split('\t').map(c => c.trim()));
   
   detectedAssigneeColIdx = -1;
-  const headerRow = parsedParsedRowsStream[0];
-  
-  for (let i = 0; i < headerRow.length; i++) {
-    const colName = headerRow[i].toUpperCase();
-    if (colName.includes("ASSIGNEE") || colName.includes("ASSIGNED")) {
-      detectedAssigneeColIdx = i;
-      break;
+  detectedHeaderRowIdx = -1;
+
+  // Scan across rows to find the line containing "ASSIGNEE"
+  for (let r = 0; r < parsedParsedRowsStream.length; r++) {
+    const row = parsedParsedRowsStream[r];
+    for (let c = 0; c < row.length; c++) {
+      const cellVal = row[c].toUpperCase();
+      if (cellVal.includes("ASSIGNEE") || cellVal.includes("ASSIGNED")) {
+        detectedAssigneeColIdx = c;
+        detectedHeaderRowIdx = r;
+        break;
+      }
     }
+    if (detectedAssigneeColIdx !== -1) break;
   }
 
+  // Fallback to searching masterHeaders matching
   if (detectedAssigneeColIdx === -1) {
     detectedAssigneeColIdx = masterHeaders.findIndex(h => h.toLowerCase() === "assignee");
   }
 
   const assigneeSet = new Set();
-  const startRow = (detectedAssigneeColIdx !== -1 && headerRow[detectedAssigneeColIdx] && headerRow[detectedAssigneeColIdx].toUpperCase().includes("ASSIGN")) ? 1 : 0;
+  const startRow = (detectedHeaderRowIdx !== -1) ? detectedHeaderRowIdx + 1 : 0;
 
   for (let r = startRow; r < parsedParsedRowsStream.length; r++) {
     const row = parsedParsedRowsStream[r];
@@ -157,17 +166,30 @@ function parsePastedStreamForAssignees() {
 
   detectedAssignees = Array.from(assigneeSet);
 
+  // Auto-fill Sub Route if detected
   let detectedRoute = "";
-  const busRouteColIdx = headerRow.findIndex(h => h.toUpperCase().includes("BUS ROUTE") || h.toUpperCase().includes("ROUTE"));
-  if (busRouteColIdx !== -1 && parsedParsedRowsStream.length > 1) {
-    detectedRoute = parsedParsedRowsStream[1][busRouteColIdx] || "";
+  if (detectedHeaderRowIdx !== -1) {
+    const headerRow = parsedParsedRowsStream[detectedHeaderRowIdx];
+    const busRouteColIdx = headerRow.findIndex(h => h.toUpperCase().includes("BUS ROUTE") || h.toUpperCase().includes("ROUTE"));
+    if (busRouteColIdx !== -1 && parsedParsedRowsStream.length > detectedHeaderRowIdx + 1) {
+      detectedRoute = parsedParsedRowsStream[detectedHeaderRowIdx + 1][busRouteColIdx] || "";
+    }
   }
+  
   if (detectedRoute && !document.getElementById('sub-sheet-input').value) {
     document.getElementById('sub-sheet-input').value = detectedRoute;
   }
 
   if (detectedAssignees.length > 0) {
     pillsList.innerHTML = "";
+    
+    // Add "All" option pill
+    const allPill = document.createElement('div');
+    allPill.className = `assignee-pill ${selectedAssignee === '' ? 'selected' : ''}`;
+    allPill.textContent = "All Assignees";
+    allPill.addEventListener('click', () => selectAssigneeFilter(''));
+    pillsList.appendChild(allPill);
+
     detectedAssignees.forEach(name => {
       const pill = document.createElement('div');
       pill.className = `assignee-pill ${selectedAssignee === name ? 'selected' : ''}`;
@@ -176,10 +198,6 @@ function parsePastedStreamForAssignees() {
       pillsList.appendChild(pill);
     });
     container.classList.remove('hidden');
-
-    if (detectedAssignees.length === 1) {
-      selectAssigneeFilter(detectedAssignees[0]);
-    }
   } else {
     container.classList.add('hidden');
   }
@@ -188,13 +206,12 @@ function parsePastedStreamForAssignees() {
 function selectAssigneeFilter(name) {
   selectedAssignee = name;
   document.querySelectorAll('.assignee-pill').forEach(el => {
-    if (el.textContent === name) el.classList.add('selected');
-    else el.classList.remove('selected');
+    if ((name === '' && el.textContent === "All Assignees") || el.textContent === name) {
+      el.classList.add('selected');
+    } else {
+      el.classList.remove('selected');
+    }
   });
-
-  // Auto-populate input field with selected assignee name
-  document.getElementById('main-sheet-input').value = name;
-  document.getElementById('main-sheet-select').value = "";
 }
 
 document.getElementById('theme-toggle-btn').addEventListener('click', () => {
@@ -244,7 +261,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
   const loaderText = document.getElementById('view-loader-text');
   
   overlay.classList.remove('hidden');
-  loaderText.textContent = "Processing and filtering row structures...";
+  loaderText.textContent = "Processing and aligning dataset columns...";
 
   setTimeout(() => {
     let htmlRows = [];
@@ -257,18 +274,50 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
     const lines = rawDataText.split('\n').filter(l => l.trim().length > 0);
     const extractedRows = [];
 
+    // Map column headers dynamically per line structure
+    let headerMap = {};
+    if (detectedHeaderRowIdx !== -1 && parsedParsedRowsStream[detectedHeaderRowIdx]) {
+      const headerRow = parsedParsedRowsStream[detectedHeaderRowIdx];
+      headerRow.forEach((colName, cIdx) => {
+        const cleanCol = colName.trim().toUpperCase();
+        masterHeaders.forEach((mHead, mIdx) => {
+          if (mHead.split('_dup')[0].toUpperCase() === cleanCol) {
+            headerMap[mIdx] = cIdx;
+          }
+        });
+      });
+    }
+
     lines.forEach((line, index) => {
       const cells = line.split('\t').map(c => c.trim());
       
+      // Skip identified header rows
+      if (cells[0] && cells[0].toUpperCase().includes("SITE ID/BLOCK MAPPING")) {
+        return;
+      }
+
+      // Filter by Assignee if pill is selected
       if (selectedAssignee && detectedAssigneeColIdx !== -1) {
         const rowAssignee = cells[detectedAssigneeColIdx] || "";
-        if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase() && !cells[0].toUpperCase().includes("SITE ID")) {
+        if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) {
           return;
         }
       }
 
-      if (cells[0] && cells[0].toUpperCase().includes("SITE ID/BLOCK MAPPING")) {
-        return;
+      // Dynamically align row cells to Master 43-Column Schema
+      let alignedRowCells = new Array(masterHeaders.length).fill("");
+      if (Object.keys(headerMap).length > 0) {
+        masterHeaders.forEach((_, mIdx) => {
+          if (headerMap[mIdx] !== undefined && cells[headerMap[mIdx]] !== undefined) {
+            alignedRowCells[mIdx] = cells[headerMap[mIdx]];
+          }
+        });
+      } else {
+        cells.forEach((cellVal, cIdx) => {
+          if (cIdx < masterHeaders.length) {
+            alignedRowCells[cIdx] = cellVal;
+          }
+        });
       }
 
       let isStrikethrough = false;
@@ -284,7 +333,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
       }
 
       extractedRows.push({
-        data: cells,
+        data: alignedRowCells,
         isStrikethrough: isStrikethrough
       });
     });
