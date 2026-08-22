@@ -50,7 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (savedTheme === 'dark') {
     document.documentElement.setAttribute('data-theme', 'dark');
-    document.getElementById('theme-toggle-btn').textContent = "☼ Light Mode";
+    const toggleBtn = document.getElementById('theme-toggle-btn');
+    if (toggleBtn) toggleBtn.textContent = "☼ Light Mode";
   }
 
   if (savedMain && savedSub && projectDatabase[savedMain] && projectDatabase[savedMain][savedSub]) {
@@ -87,7 +88,7 @@ function parsePastedStreamForAssignees() {
     return;
   }
 
-  const lines = rawText.split('\n').filter(l => l.trim().length > 0);
+  const lines = rawText.split(/\r?\n/).filter(l => l.length > 0);
   if (lines.length === 0) return;
 
   parsedParsedRowsStream = lines.map(line => line.split('\t').map(c => c.trim()));
@@ -214,7 +215,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
   const loaderText = document.getElementById('view-loader-text');
   
   overlay.classList.remove('hidden');
-  loaderText.textContent = "Processing and ingesting dataset as pasted...";
+  loaderText.textContent = "Processing direct raw ingest stream...";
 
   setTimeout(() => {
     let htmlRows = [];
@@ -224,68 +225,49 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
       htmlRows = Array.from(doc.querySelectorAll('tr'));
     }
 
-    const lines = rawDataText.split('\n').filter(l => l.trim().length > 0);
+    const lines = rawDataText.split(/\r?\n/).filter(l => l.trim().length > 0);
     const extractedRows = [];
 
-    // Header Detection Engine
-    let dynamicHeaderIndexMap = {};
-    let detectedHeaderLine = false;
-
+    // Auto Header Row Detection
+    let isHeaderRowPresent = false;
     if (lines.length > 0) {
       const firstLineCells = lines[0].split('\t').map(c => c.trim().toUpperCase());
-      let matchCount = 0;
-
-      firstLineCells.forEach((pastedCol, pIdx) => {
-        masterHeaders.forEach((mHead, mIdx) => {
-          const cleanMaster = mHead.split('_dup')[0].toUpperCase();
-          if (cleanMaster === pastedCol && pastedCol !== "") {
-            dynamicHeaderIndexMap[mIdx] = pIdx;
-            matchCount++;
-          }
-        });
-      });
-
-      if (matchCount >= 2) {
-        detectedHeaderLine = true;
+      const headerMatches = firstLineCells.filter(c => c && masterHeaders.some(m => m.toUpperCase().includes(c)));
+      if (headerMatches.length >= 2) {
+        isHeaderRowPresent = true;
       }
     }
 
-    const startIndex = detectedHeaderLine ? 1 : 0;
+    const startIndex = isHeaderRowPresent ? 1 : 0;
 
     for (let index = startIndex; index < lines.length; index++) {
       const line = lines[index];
       const cells = line.split('\t').map(c => c.trim());
 
-      // Filter by Assignee if active
+      // Filter by Assignee
       if (selectedAssignee && detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < cells.length) {
         const rowAssignee = cells[detectedAssigneeColIdx] || "";
         if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) continue;
       }
 
+      // DIRECT SEQUENTIAL INGESTION (Fixes blank shift)
       let alignedRowCells = new Array(masterHeaders.length).fill("");
+      let cellPointer = 0;
 
-      if (detectedHeaderLine && Object.keys(dynamicHeaderIndexMap).length > 0) {
-        // Option A: Map cells according to header names matched
-        masterHeaders.forEach((_, mIdx) => {
-          const pastedColIdx = dynamicHeaderIndexMap[mIdx];
-          if (pastedColIdx !== undefined && cells[pastedColIdx] !== undefined) {
-            alignedRowCells[mIdx] = cells[pastedColIdx];
-          }
-        });
-      } else {
-        // Option B: Sequential mapping (paste as-is, automatically filling across columns)
-        let masterIdx = 0;
-        for (let cIdx = 0; cIdx < cells.length; cIdx++) {
-          while (masterIdx < masterHeaders.length && masterHeaders[masterIdx].startsWith("SPACER_")) {
-            masterIdx++;
-          }
-          if (masterIdx < masterHeaders.length) {
-            alignedRowCells[masterIdx] = cells[cIdx];
-            masterIdx++;
-          }
+      for (let mIdx = 0; mIdx < masterHeaders.length; mIdx++) {
+        // If master column is a spacer, keep empty and preserve original cell for actual data column
+        if (masterHeaders[mIdx].startsWith("SPACER_")) {
+          alignedRowCells[mIdx] = "";
+          continue;
+        }
+
+        if (cellPointer < cells.length) {
+          alignedRowCells[mIdx] = cells[cellPointer];
+          cellPointer++;
         }
       }
 
+      // Strikethrough Detection
       let isStrikethrough = false;
       if (htmlRows.length > 0) {
         const matchingHtmlRow = htmlRows[index] || htmlRows.find(tr => tr.textContent.includes(cells[0]));
@@ -306,7 +288,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
 
     if (extractedRows.length === 0) {
       overlay.classList.add('hidden');
-      alert("No valid rows extracted for the selected criteria.");
+      alert("No valid rows extracted.");
       return;
     }
 
@@ -328,7 +310,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
     updateDropdownMenu();
     rebuildWorkbookTree();
     switchViewContext(mainName, subName);
-  }, 400);
+  }, 300);
 });
 
 function updateDropdownMenu() {
