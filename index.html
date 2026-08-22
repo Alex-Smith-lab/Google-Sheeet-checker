@@ -59,6 +59,7 @@
       align-items: center;
       justify-content: center;
     }
+
     .offline-card {
       background: #1e293b;
       padding: 32px;
@@ -176,7 +177,6 @@
     .btn-export-gsheet:hover { background-color: var(--success-hover); }
     .btn-export-csv { background-color: #475569; color: white; width: auto; padding: 5px 12px; font-size: 11px; }
 
-    /* Assignee Selection Pills */
     .assignee-container {
       margin-bottom: 10px;
       padding: 8px;
@@ -206,7 +206,6 @@
       color: white;
     }
 
-    /* Workbook Tree */
     .tree-node { border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 8px; background: var(--bg-card); }
     .tree-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--bg-main); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border-color); }
     .tree-children { padding: 4px; }
@@ -231,7 +230,6 @@
     .btn-delete-node { background: transparent; color: var(--text-muted); padding: 0 4px; width: auto; font-size: 11px; }
     .btn-delete-node:hover { color: var(--danger); }
 
-    /* Loader Overlay */
     .loader-overlay {
       position: absolute; top: 0; left: 0; right: 0; bottom: 0;
       background: var(--bg-card); opacity: 0.95; display: flex;
@@ -241,13 +239,11 @@
     .loader-text { margin-top: 12px; font-size: 12px; font-weight: 500; color: var(--text-dark); }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Metrics Grid */
     .metrics-banner { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
     .metric-card { background: var(--bg-main); border: 1px solid var(--border-color); padding: 8px 10px; border-radius: 4px; }
     .metric-card h4 { margin: 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; }
     .metric-card div { font-size: 14px; font-weight: 600; margin-top: 2px; }
 
-    /* Data Table View */
     .table-wrapper { 
       flex: 1;
       overflow: auto; 
