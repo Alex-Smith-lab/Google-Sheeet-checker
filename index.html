@@ -663,22 +663,34 @@
           
           if (cells[0] && cells[0].toUpperCase().includes("SITE ID/BLOCK MAPPING")) return;
 
-          if (selectedAssignee && detectedAssigneeColIdx !== -1) {
+          if (selectedAssignee && detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < cells.length) {
             const rowAssignee = cells[detectedAssigneeColIdx] || "";
             if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) return;
           }
 
           let alignedRowCells = new Array(masterHeaders.length).fill("");
+          let mappedAnyValue = false;
+
           if (Object.keys(headerMap).length > 0) {
             masterHeaders.forEach((_, mIdx) => {
               if (headerMap[mIdx] !== undefined && cells[headerMap[mIdx]] !== undefined) {
                 alignedRowCells[mIdx] = cells[headerMap[mIdx]];
+                if (cells[headerMap[mIdx]]) mappedAnyValue = true;
               }
             });
-          } else {
-            cells.forEach((cellVal, cIdx) => {
-              if (cIdx < masterHeaders.length) alignedRowCells[cIdx] = cellVal;
-            });
+          }
+
+          if (!mappedAnyValue) {
+            let writeIdx = 0;
+            for (let cIdx = 0; cIdx < cells.length; cIdx++) {
+              while (writeIdx < masterHeaders.length && masterHeaders[writeIdx].startsWith("SPACER_")) {
+                writeIdx++;
+              }
+              if (writeIdx < masterHeaders.length) {
+                alignedRowCells[writeIdx] = cells[cIdx];
+                writeIdx++;
+              }
+            }
           }
 
           let isStrikethrough = false;
