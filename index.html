@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sheet Task Extractor Pro - Web Workspace</title>
+  <title>Sheet Task Extractor Pro - Direct Ingest Workspace</title>
   <style>
     :root {
       --bg-main: #f8fafc;
@@ -317,7 +317,7 @@
   </div>
 
   <div class="navbar">
-    <h1>SHEET TASK EXTRACTOR PRO (WEB)</h1>
+    <h1>SHEET TASK EXTRACTOR PRO (DIRECT INGEST)</h1>
     <div>
       <button class="theme-toggle" id="theme-toggle-btn">◑ Dark Mode</button>
     </div>
@@ -508,7 +508,7 @@
       detectedAssigneeColIdx = -1;
       detectedHeaderRowIdx = -1;
 
-      for (let r = 0; r < parsedParsedRowsStream.length; r++) {
+      for (let r = 0; r < Math.min(parsedParsedRowsStream.length, 5); r++) {
         const row = parsedParsedRowsStream[r];
         for (let c = 0; c < row.length; c++) {
           const cellVal = row[c].toUpperCase();
@@ -521,16 +521,12 @@
         if (detectedAssigneeColIdx !== -1) break;
       }
 
-      if (detectedAssigneeColIdx === -1) {
-        detectedAssigneeColIdx = masterHeaders.findIndex(h => h.toLowerCase() === "assignee");
-      }
-
       const assigneeSet = new Set();
       const startRow = (detectedHeaderRowIdx !== -1) ? detectedHeaderRowIdx + 1 : 0;
 
       for (let r = startRow; r < parsedParsedRowsStream.length; r++) {
         const row = parsedParsedRowsStream[r];
-        if (detectedAssigneeColIdx < row.length) {
+        if (detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < row.length) {
           const val = row[detectedAssigneeColIdx];
           if (val && val.trim().length > 0 && val.toUpperCase() !== "ASSIGNEE") {
             assigneeSet.add(val.trim());
@@ -632,7 +628,7 @@
       const loaderText = document.getElementById('view-loader-text');
       
       overlay.classList.remove('hidden');
-      loaderText.textContent = "Processing and aligning dataset columns...";
+      loaderText.textContent = "Processing and ingesting dataset as pasted...";
 
       setTimeout(() => {
         let htmlRows = [];
@@ -645,50 +641,62 @@
         const lines = rawDataText.split('\n').filter(l => l.trim().length > 0);
         const extractedRows = [];
 
-        let headerMap = {};
-        if (detectedHeaderRowIdx !== -1 && parsedParsedRowsStream[detectedHeaderRowIdx]) {
-          const headerRow = parsedParsedRowsStream[detectedHeaderRowIdx];
-          headerRow.forEach((colName, cIdx) => {
-            const cleanCol = colName.trim().toUpperCase();
+        // Check if first line contains header titles matching master headers
+        let dynamicHeaderIndexMap = {};
+        let detectedHeaderLine = false;
+
+        if (lines.length > 0) {
+          const firstLineCells = lines[0].split('\t').map(c => c.trim().toUpperCase());
+          let matchCount = 0;
+
+          firstLineCells.forEach((pastedCol, pIdx) => {
             masterHeaders.forEach((mHead, mIdx) => {
-              if (mHead.split('_dup')[0].toUpperCase() === cleanCol) {
-                headerMap[mIdx] = cIdx;
+              const cleanMaster = mHead.split('_dup')[0].toUpperCase();
+              if (cleanMaster === pastedCol && pastedCol !== "") {
+                dynamicHeaderIndexMap[mIdx] = pIdx;
+                matchCount++;
               }
             });
           });
+
+          if (matchCount >= 2) {
+            detectedHeaderLine = true;
+          }
         }
 
-        lines.forEach((line, index) => {
-          const cells = line.split('\t').map(c => c.trim());
-          
-          if (cells[0] && cells[0].toUpperCase().includes("SITE ID/BLOCK MAPPING")) return;
+        const startIndex = detectedHeaderLine ? 1 : 0;
 
+        for (let index = startIndex; index < lines.length; index++) {
+          const line = lines[index];
+          const cells = line.split('\t').map(c => c.trim());
+
+          // Apply assignee filter if selected
           if (selectedAssignee && detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < cells.length) {
             const rowAssignee = cells[detectedAssigneeColIdx] || "";
-            if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) return;
+            if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) continue;
           }
 
           let alignedRowCells = new Array(masterHeaders.length).fill("");
-          let mappedAnyValue = false;
 
-          if (Object.keys(headerMap).length > 0) {
+          if (detectedHeaderLine && Object.keys(dynamicHeaderIndexMap).length > 0) {
+            // Header-matched mapping
             masterHeaders.forEach((_, mIdx) => {
-              if (headerMap[mIdx] !== undefined && cells[headerMap[mIdx]] !== undefined) {
-                alignedRowCells[mIdx] = cells[headerMap[mIdx]];
-                if (cells[headerMap[mIdx]]) mappedAnyValue = true;
+              const pastedColIdx = dynamicHeaderIndexMap[mIdx];
+              if (pastedColIdx !== undefined && cells[pastedColIdx] !== undefined) {
+                alignedRowCells[mIdx] = cells[pastedColIdx];
               }
             });
-          }
-
-          if (!mappedAnyValue) {
-            let writeIdx = 0;
+          } else {
+            // Direct As-Is sequential paste mapping (guarantees no blanks/skips)
+            let masterIdx = 0;
             for (let cIdx = 0; cIdx < cells.length; cIdx++) {
-              while (writeIdx < masterHeaders.length && masterHeaders[writeIdx].startsWith("SPACER_")) {
-                writeIdx++;
+              // Skip spacers automatically when populating
+              while (masterIdx < masterHeaders.length && masterHeaders[masterIdx].startsWith("SPACER_")) {
+                masterIdx++;
               }
-              if (writeIdx < masterHeaders.length) {
-                alignedRowCells[writeIdx] = cells[cIdx];
-                writeIdx++;
+              if (masterIdx < masterHeaders.length) {
+                alignedRowCells[masterIdx] = cells[cIdx];
+                masterIdx++;
               }
             }
           }
@@ -709,7 +717,7 @@
             data: alignedRowCells,
             isStrikethrough: isStrikethrough
           });
-        });
+        }
 
         if (extractedRows.length === 0) {
           overlay.classList.add('hidden');
