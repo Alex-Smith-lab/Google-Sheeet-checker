@@ -95,17 +95,30 @@ function parsePastedStreamForAssignees() {
   detectedAssigneeColIdx = -1;
   detectedHeaderRowIdx = -1;
 
+  // Scan first 5 lines to locate the Assignee column
   for (let r = 0; r < Math.min(parsedParsedRowsStream.length, 5); r++) {
     const row = parsedParsedRowsStream[r];
     for (let c = 0; c < row.length; c++) {
       const cellVal = row[c].toUpperCase();
-      if (cellVal.includes("ASSIGNEE") || cellVal.includes("ASSIGNED")) {
+      if (cellVal === "ASSIGNEE" || cellVal.includes("ASSIGNED")) {
         detectedAssigneeColIdx = c;
         detectedHeaderRowIdx = r;
         break;
       }
     }
     if (detectedAssigneeColIdx !== -1) break;
+  }
+
+  // Fallback if header name wasn't matched explicitly but column index exists in master
+  if (detectedAssigneeColIdx === -1) {
+    const masterAssigneeIndex = masterHeaders.indexOf("Assignee");
+    if (masterAssigneeIndex !== -1) {
+      let nonSpacerIdx = 0;
+      for (let i = 0; i < masterAssigneeIndex; i++) {
+        if (!masterHeaders[i].startsWith("SPACER_")) nonSpacerIdx++;
+      }
+      detectedAssigneeColIdx = nonSpacerIdx;
+    }
   }
 
   const assigneeSet = new Set();
@@ -228,7 +241,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
     const lines = rawDataText.split(/\r?\n/).filter(l => l.trim().length > 0);
     const extractedRows = [];
 
-    // Auto Header Row Detection
+    // Header Detection
     let isHeaderRowPresent = false;
     if (lines.length > 0) {
       const firstLineCells = lines[0].split('\t').map(c => c.trim().toUpperCase());
@@ -244,18 +257,23 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
       const line = lines[index];
       const cells = line.split('\t').map(c => c.trim());
 
-      // Filter by Assignee
-      if (selectedAssignee && detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < cells.length) {
-        const rowAssignee = cells[detectedAssigneeColIdx] || "";
+      const rowAssignee = (detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < cells.length) 
+        ? cells[detectedAssigneeColIdx].trim() 
+        : "";
+
+      // 1. If a specific assignee pill is selected, skip anything that does not match
+      if (selectedAssignee !== "") {
         if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) continue;
+      } else {
+        // 2. If "All Assignees" is selected, skip rows where Assignee is empty/unworked
+        if (!rowAssignee) continue;
       }
 
-      // DIRECT SEQUENTIAL INGESTION (Fixes blank shift)
+      // Sequential Ingest Layout
       let alignedRowCells = new Array(masterHeaders.length).fill("");
       let cellPointer = 0;
 
       for (let mIdx = 0; mIdx < masterHeaders.length; mIdx++) {
-        // If master column is a spacer, keep empty and preserve original cell for actual data column
         if (masterHeaders[mIdx].startsWith("SPACER_")) {
           alignedRowCells[mIdx] = "";
           continue;
@@ -267,7 +285,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
         }
       }
 
-      // Strikethrough Detection
+      // Strikethrough Check
       let isStrikethrough = false;
       if (htmlRows.length > 0) {
         const matchingHtmlRow = htmlRows[index] || htmlRows.find(tr => tr.textContent.includes(cells[0]));
@@ -288,7 +306,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
 
     if (extractedRows.length === 0) {
       overlay.classList.add('hidden');
-      alert("No valid rows extracted.");
+      alert("No valid rows matching the selected assignee were found.");
       return;
     }
 
