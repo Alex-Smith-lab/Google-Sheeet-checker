@@ -1,45 +1,13 @@
-// 43-Column Schema Mapping
 const masterHeaders = [
-  "Site ID/Block Mapping",
-  "LOCATION DESCRIPTION",
-  "D",
-  "LOCATION NAME",
-  "STREET START",
-  "STREET END",
-  "BUS ROUTE",
-  "SHARED BLOCKS",
-  "VIDEO NAME",
-  "MC LINK",
-  "TIMESTAMP",
-  "SCREENSHOT",
-  "NOTES",
-  "SPACER_1",
-  "BS ID",
-  "BS NAME",
-  "ENFORCEMENT DAYS",
-  "ENFORCEMENT HOURS",
-  "LAT",
-  "LONG",
-  "Bus Stop Lane Type",
-  "CLASSIFICATION",
-  "MC LINK_dup1",
-  "TIMESTAMP_dup1",
-  "OTHER ROUTES",
-  "SCREENSHOT_dup1",
-  "STOP LENGTH",
-  "SCREENSHOT_dup2",
-  "NOTES_dup1",
-  "SPACER_2",
-  "BUS LANE? Y/N",
-  "ENFORCEMENT HOURS_dup1",
-  "ENFORCEMENT DAYS_dup1",
-  "POSITION",
-  "DASHED Y/N",
-  "NOTES_dup2",
-  "SPACER_3",
-  "Assignee",
-  "F.P. Status",
-  "Review"
+  "Site ID/Block Mapping", "LOCATION DESCRIPTION", "D", "LOCATION NAME",
+  "STREET START", "STREET END", "BUS ROUTE", "SHARED BLOCKS", "VIDEO NAME",
+  "MC LINK", "TIMESTAMP", "SCREENSHOT", "NOTES", "SPACER_1", "BS ID",
+  "BS NAME", "ENFORCEMENT DAYS", "ENFORCEMENT HOURS", "LAT", "LONG",
+  "Bus Stop Lane Type", "CLASSIFICATION", "MC LINK_dup1", "TIMESTAMP_dup1",
+  "OTHER ROUTES", "SCREENSHOT_dup1", "STOP LENGTH", "SCREENSHOT_dup2",
+  "NOTES_dup1", "SPACER_2", "BUS LANE? Y/N", "ENFORCEMENT HOURS_dup1",
+  "ENFORCEMENT DAYS_dup1", "POSITION", "DASHED Y/N", "NOTES_dup2",
+  "SPACER_3", "Assignee", "F.P. Status", "Review"
 ];
 
 let projectDatabase = {};
@@ -65,7 +33,6 @@ function verifyOnlineStatus() {
 
 document.addEventListener('DOMContentLoaded', () => {
   verifyOnlineStatus();
-
   const savedData = localStorage.getItem('projectDatabase');
   const savedTheme = localStorage.getItem('appTheme');
   const savedMain = localStorage.getItem('activeMainSheet');
@@ -96,14 +63,11 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('offline', verifyOnlineStatus);
 window.addEventListener('online', verifyOnlineStatus);
 
-// Capture HTML Clipboard Data
 document.getElementById('paste-input').addEventListener('paste', (e) => {
   clipboardHtmlBuffer = "";
   if (e.clipboardData) {
     const htmlData = e.clipboardData.getData('text/html');
-    if (htmlData) {
-      clipboardHtmlBuffer = htmlData;
-    }
+    if (htmlData) clipboardHtmlBuffer = htmlData;
   }
   setTimeout(parsePastedStreamForAssignees, 100);
 });
@@ -112,7 +76,6 @@ document.getElementById('paste-input').addEventListener('input', () => {
   parsePastedStreamForAssignees();
 });
 
-// Dynamic scanning across all rows to locate shifted headers and assignee columns
 function parsePastedStreamForAssignees() {
   const rawText = document.getElementById('paste-input').value;
   const container = document.getElementById('assignee-selector-box');
@@ -128,12 +91,10 @@ function parsePastedStreamForAssignees() {
   if (lines.length === 0) return;
 
   parsedParsedRowsStream = lines.map(line => line.split('\t').map(c => c.trim()));
-  
   detectedAssigneeColIdx = -1;
   detectedHeaderRowIdx = -1;
 
-  // Scan across rows to find the line containing "ASSIGNEE"
-  for (let r = 0; r < parsedParsedRowsStream.length; r++) {
+  for (let r = 0; r < Math.min(parsedParsedRowsStream.length, 5); r++) {
     const row = parsedParsedRowsStream[r];
     for (let c = 0; c < row.length; c++) {
       const cellVal = row[c].toUpperCase();
@@ -146,17 +107,12 @@ function parsePastedStreamForAssignees() {
     if (detectedAssigneeColIdx !== -1) break;
   }
 
-  // Fallback to searching masterHeaders matching
-  if (detectedAssigneeColIdx === -1) {
-    detectedAssigneeColIdx = masterHeaders.findIndex(h => h.toLowerCase() === "assignee");
-  }
-
   const assigneeSet = new Set();
   const startRow = (detectedHeaderRowIdx !== -1) ? detectedHeaderRowIdx + 1 : 0;
 
   for (let r = startRow; r < parsedParsedRowsStream.length; r++) {
     const row = parsedParsedRowsStream[r];
-    if (detectedAssigneeColIdx < row.length) {
+    if (detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < row.length) {
       const val = row[detectedAssigneeColIdx];
       if (val && val.trim().length > 0 && val.toUpperCase() !== "ASSIGNEE") {
         assigneeSet.add(val.trim());
@@ -166,7 +122,6 @@ function parsePastedStreamForAssignees() {
 
   detectedAssignees = Array.from(assigneeSet);
 
-  // Auto-fill Sub Route if detected
   let detectedRoute = "";
   if (detectedHeaderRowIdx !== -1) {
     const headerRow = parsedParsedRowsStream[detectedHeaderRowIdx];
@@ -182,8 +137,6 @@ function parsePastedStreamForAssignees() {
 
   if (detectedAssignees.length > 0) {
     pillsList.innerHTML = "";
-    
-    // Add "All" option pill
     const allPill = document.createElement('div');
     allPill.className = `assignee-pill ${selectedAssignee === '' ? 'selected' : ''}`;
     allPill.textContent = "All Assignees";
@@ -261,7 +214,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
   const loaderText = document.getElementById('view-loader-text');
   
   overlay.classList.remove('hidden');
-  loaderText.textContent = "Processing and aligning dataset columns...";
+  loaderText.textContent = "Processing and ingesting dataset as pasted...";
 
   setTimeout(() => {
     let htmlRows = [];
@@ -274,50 +227,63 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
     const lines = rawDataText.split('\n').filter(l => l.trim().length > 0);
     const extractedRows = [];
 
-    // Map column headers dynamically per line structure
-    let headerMap = {};
-    if (detectedHeaderRowIdx !== -1 && parsedParsedRowsStream[detectedHeaderRowIdx]) {
-      const headerRow = parsedParsedRowsStream[detectedHeaderRowIdx];
-      headerRow.forEach((colName, cIdx) => {
-        const cleanCol = colName.trim().toUpperCase();
+    // Header Detection Engine
+    let dynamicHeaderIndexMap = {};
+    let detectedHeaderLine = false;
+
+    if (lines.length > 0) {
+      const firstLineCells = lines[0].split('\t').map(c => c.trim().toUpperCase());
+      let matchCount = 0;
+
+      firstLineCells.forEach((pastedCol, pIdx) => {
         masterHeaders.forEach((mHead, mIdx) => {
-          if (mHead.split('_dup')[0].toUpperCase() === cleanCol) {
-            headerMap[mIdx] = cIdx;
+          const cleanMaster = mHead.split('_dup')[0].toUpperCase();
+          if (cleanMaster === pastedCol && pastedCol !== "") {
+            dynamicHeaderIndexMap[mIdx] = pIdx;
+            matchCount++;
           }
         });
       });
+
+      if (matchCount >= 2) {
+        detectedHeaderLine = true;
+      }
     }
 
-    lines.forEach((line, index) => {
+    const startIndex = detectedHeaderLine ? 1 : 0;
+
+    for (let index = startIndex; index < lines.length; index++) {
+      const line = lines[index];
       const cells = line.split('\t').map(c => c.trim());
-      
-      // Skip identified header rows
-      if (cells[0] && cells[0].toUpperCase().includes("SITE ID/BLOCK MAPPING")) {
-        return;
-      }
 
-      // Filter by Assignee if pill is selected
-      if (selectedAssignee && detectedAssigneeColIdx !== -1) {
+      // Filter by Assignee if active
+      if (selectedAssignee && detectedAssigneeColIdx !== -1 && detectedAssigneeColIdx < cells.length) {
         const rowAssignee = cells[detectedAssigneeColIdx] || "";
-        if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) {
-          return;
-        }
+        if (rowAssignee.toLowerCase() !== selectedAssignee.toLowerCase()) continue;
       }
 
-      // Dynamically align row cells to Master 43-Column Schema
       let alignedRowCells = new Array(masterHeaders.length).fill("");
-      if (Object.keys(headerMap).length > 0) {
+
+      if (detectedHeaderLine && Object.keys(dynamicHeaderIndexMap).length > 0) {
+        // Option A: Map cells according to header names matched
         masterHeaders.forEach((_, mIdx) => {
-          if (headerMap[mIdx] !== undefined && cells[headerMap[mIdx]] !== undefined) {
-            alignedRowCells[mIdx] = cells[headerMap[mIdx]];
+          const pastedColIdx = dynamicHeaderIndexMap[mIdx];
+          if (pastedColIdx !== undefined && cells[pastedColIdx] !== undefined) {
+            alignedRowCells[mIdx] = cells[pastedColIdx];
           }
         });
       } else {
-        cells.forEach((cellVal, cIdx) => {
-          if (cIdx < masterHeaders.length) {
-            alignedRowCells[cIdx] = cellVal;
+        // Option B: Sequential mapping (paste as-is, automatically filling across columns)
+        let masterIdx = 0;
+        for (let cIdx = 0; cIdx < cells.length; cIdx++) {
+          while (masterIdx < masterHeaders.length && masterHeaders[masterIdx].startsWith("SPACER_")) {
+            masterIdx++;
           }
-        });
+          if (masterIdx < masterHeaders.length) {
+            alignedRowCells[masterIdx] = cells[cIdx];
+            masterIdx++;
+          }
+        }
       }
 
       let isStrikethrough = false;
@@ -336,7 +302,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
         data: alignedRowCells,
         isStrikethrough: isStrikethrough
       });
-    });
+    }
 
     if (extractedRows.length === 0) {
       overlay.classList.add('hidden');
@@ -524,7 +490,7 @@ document.getElementById('btn-create-gsheet').addEventListener('click', () => {
   const fullDataClipboardString = [headerCleanText, ...textRowsArray].join('\n');
 
   navigator.clipboard.writeText(fullDataClipboardString).then(() => {
-    alert("Formatted data copied to clipboard! Opening Google Sheets... Press Ctrl+V (or Cmd+V) to paste.");
+    alert("Formatted data copied to clipboard! Opening Google Sheets... Press Ctrl+V to paste.");
     window.open("https://sheets.new", "_blank");
   });
 });
@@ -534,7 +500,6 @@ document.getElementById('btn-export-csv').addEventListener('click', () => {
   if (!activeMainSheet || !activeSubSheet || !projectDatabase[activeMainSheet] || !projectDatabase[activeMainSheet][activeSubSheet]) return;
 
   const targetWorkbook = projectDatabase[activeMainSheet][activeSubSheet];
-  
   const sanitizeCsvCell = (val) => {
     if (val === null || val === undefined) return '""';
     return `"${val.toString().replace(/"/g, '""')}"`;
