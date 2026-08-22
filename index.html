@@ -343,16 +343,15 @@
         </div>
 
         <div class="form-group">
-          <label for="main-sheet-select">Main Folder (Auto-generated/Select)</label>
-          <select id="main-sheet-select">
-            <option value="" disabled selected>-- Select Main Folder --</option>
-            <option value="__NEW__">➕ Add Custom Folder</option>
-          </select>
+          <label for="main-sheet-input">Main Folder / Sheet Name</label>
+          <input type="text" id="main-sheet-input" placeholder="Paste, edit, or auto-generate folder name...">
         </div>
 
-        <div class="form-group hidden" id="new-main-input-container">
-          <label for="new-main-sheet-name">Custom Folder Name</label>
-          <input type="text" id="new-main-sheet-name" placeholder="Type folder name...">
+        <div class="form-group">
+          <label for="main-sheet-select" style="font-weight: 400; color: var(--text-muted);">or Pick Existing Folder from Storage</label>
+          <select id="main-sheet-select">
+            <option value="" selected>-- Select Existing Folder --</option>
+          </select>
         </div>
 
         <div class="form-group">
