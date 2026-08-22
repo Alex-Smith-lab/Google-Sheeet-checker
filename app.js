@@ -192,23 +192,9 @@ function selectAssigneeFilter(name) {
     else el.classList.remove('selected');
   });
 
-  let selectElement = document.getElementById('main-sheet-select');
-  let optionExists = false;
-  for (let i = 0; i < selectElement.options.length; i++) {
-    if (selectElement.options[i].value === name) {
-      selectElement.selectedIndex = i;
-      optionExists = true;
-      break;
-    }
-  }
-
-  if (!optionExists) {
-    selectElement.value = "__NEW__";
-    document.getElementById('new-main-input-container').classList.remove('hidden');
-    document.getElementById('new-main-sheet-name').value = name;
-  } else {
-    document.getElementById('new-main-input-container').classList.add('hidden');
-  }
+  // Auto-populate input field with selected assignee name
+  document.getElementById('main-sheet-input').value = name;
+  document.getElementById('main-sheet-select').value = "";
 }
 
 document.getElementById('theme-toggle-btn').addEventListener('click', () => {
@@ -220,11 +206,8 @@ document.getElementById('theme-toggle-btn').addEventListener('click', () => {
 });
 
 document.getElementById('main-sheet-select').addEventListener('change', (e) => {
-  const container = document.getElementById('new-main-input-container');
-  if (e.target.value === "__NEW__") {
-    container.classList.remove('hidden');
-  } else {
-    container.classList.add('hidden');
+  if (e.target.value) {
+    document.getElementById('main-sheet-input').value = e.target.value;
   }
 });
 
@@ -248,8 +231,7 @@ document.getElementById('btn-close-view').addEventListener('click', () => {
 document.getElementById('process-entry-btn').addEventListener('click', () => {
   if (!verifyOnlineStatus()) return;
 
-  const selectElement = document.getElementById('main-sheet-select');
-  let mainName = selectElement.value === "__NEW__" ? document.getElementById('new-main-sheet-name').value.trim() : selectElement.value;
+  const mainName = document.getElementById('main-sheet-input').value.trim();
   const subName = document.getElementById('sub-sheet-input').value.trim();
   const rawDataText = document.getElementById('paste-input').value;
 
@@ -336,10 +318,7 @@ document.getElementById('process-entry-btn').addEventListener('click', () => {
 
 function updateDropdownMenu() {
   const select = document.getElementById('main-sheet-select');
-  select.innerHTML = `
-    <option value="" disabled selected>-- Select Main Folder --</option>
-    <option value="__NEW__">➕ Add Custom Folder</option>
-  `;
+  select.innerHTML = `<option value="" selected>-- Select Existing Folder --</option>`;
   Object.keys(projectDatabase).forEach(mainKey => {
     const opt = document.createElement('option');
     opt.value = mainKey; 
@@ -398,7 +377,7 @@ function rebuildWorkbookTree() {
         const mainTarget = e.target.getAttribute('data-main');
         const subTarget = e.target.getAttribute('data-sub');
         
-        if (confirm(`Delete route folder [ ${subTarget} ] from [${mainTarget} ]?`)) {
+        if (confirm(`Delete route folder [ ${subTarget} ] from [ ${mainTarget} ]?`)) {
           delete projectDatabase[mainTarget][subTarget];
           if (Object.keys(projectDatabase[mainTarget]).length === 0) {
             delete projectDatabase[mainTarget];
