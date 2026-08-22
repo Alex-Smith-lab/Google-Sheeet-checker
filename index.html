@@ -41,8 +41,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 0;
       padding: 0;
       background-color: var(--bg-main);
@@ -188,11 +187,6 @@
       cursor: pointer;
       width: 100%;
       border: none;
-    }
-
-    button:disabled {
-      opacity: 0.65;
-      cursor: wait;
     }
 
     .btn-primary {
@@ -363,41 +357,53 @@
       color: var(--danger);
     }
 
-    /* ================================
-       PROFESSIONAL CENTER LOADER
-       ================================ */
-
+    /* PROFESSIONAL ACTIVITY LOADER */
     .loader-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(255, 255, 255, 0.96);
-      background: color-mix(
-        in srgb,
-        var(--bg-card) 96%,
-        transparent
-      );
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
-
+      background: color-mix(in srgb, var(--bg-card) 96%, transparent);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-
       z-index: 100;
     }
 
     .loader-panel {
+      position: relative;
       width: min(410px, calc(100% - 36px));
       padding: 22px 24px;
       box-sizing: border-box;
       text-align: center;
-
       border: 1px solid var(--border-color);
       border-radius: 8px;
       background: var(--bg-card);
-
       box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
+    }
+
+    .loader-close {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-size: 20px;
+      line-height: 24px;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .loader-close:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+      background: rgba(217, 48, 37, 0.06);
     }
 
     .loader-orbit {
@@ -405,16 +411,14 @@
       height: 52px;
       margin: 0 auto 12px;
       border-radius: 50%;
-
       border: 3px solid var(--border-color);
       border-top-color: var(--accent);
       border-right-color: var(--accent);
-
       animation: loaderSpin 0.72s linear infinite;
       position: relative;
     }
 
-    .loader-orbit::after {
+    .loader-orbit:after {
       content: "";
       position: absolute;
       width: 7px;
@@ -433,13 +437,10 @@
       height: 52px;
       margin: 0 auto 12px;
       border-radius: 50%;
-
       align-items: center;
       justify-content: center;
-
       border: 2px solid var(--success);
       color: var(--success);
-
       font-size: 27px;
       font-weight: 700;
     }
@@ -518,7 +519,6 @@
 
     .loader-step.active .loader-step-dot {
       background: var(--accent);
-      box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.10);
     }
 
     .loader-step.done {
@@ -538,7 +538,6 @@
 
     .loader-step.success .loader-step-dot {
       background: var(--success);
-      box-shadow: 0 0 0 4px rgba(24, 128, 56, 0.10);
     }
 
     .loader-route {
@@ -547,13 +546,10 @@
       box-sizing: border-box;
       margin-top: 12px;
       padding: 4px 8px;
-
       border: 1px solid var(--border-color);
       border-radius: 10px;
-
       color: var(--text-muted);
       font-size: 10px;
-
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -673,10 +669,7 @@
 
   <div class="offline-overlay hidden" id="global-offline-blocker">
     <div class="offline-card">
-      <h2 style="color:#ef4444; margin:0 0 10px 0;">
-        Workspace Offline
-      </h2>
-
+      <h2 style="color:#ef4444; margin:0 0 10px 0;">Workspace Offline</h2>
       <p style="color:#94a3b8; font-size:12px;">
         Active internet connection required to maintain sync stability.
       </p>
@@ -714,10 +707,8 @@
           ></textarea>
         </div>
 
-        <div
-          id="assignee-selector-box"
-          class="assignee-container hidden"
-        >
+        <div id="assignee-selector-box" class="assignee-container hidden">
+
           <label style="font-size:11px; font-weight:700;">
             Filter Stream by Assignee:
           </label>
@@ -726,6 +717,7 @@
             id="assignee-pills-list"
             class="assignee-pill-group"
           ></div>
+
         </div>
 
         <div class="form-group">
@@ -739,6 +731,7 @@
             id="main-sheet-input"
             placeholder="Type or paste folder name manually..."
           >
+
         </div>
 
         <div class="form-group">
@@ -812,7 +805,7 @@
 
     <div class="content-area">
 
-      <!-- PROFESSIONAL LOADER -->
+      <!-- PROFESSIONAL ROUTE LOADER -->
 
       <div
         class="loader-overlay hidden"
@@ -821,6 +814,15 @@
       >
 
         <div class="loader-panel">
+
+          <button
+            class="loader-close"
+            id="btn-close-loader"
+            type="button"
+            aria-label="Close loading window"
+          >
+            ×
+          </button>
 
           <div
             class="loader-orbit"
@@ -856,10 +858,12 @@
           </div>
 
           <div class="loader-progress">
+
             <div
               class="loader-progress-bar"
               id="view-loader-progress"
             ></div>
+
           </div>
 
           <div class="loader-steps">
@@ -954,34 +958,54 @@
       <div class="metrics-banner">
 
         <div class="metric-card">
-          <h4>Total Database Volume</h4>
+
+          <h4>
+            Total Database Volume
+          </h4>
+
           <div id="stat-grand-total">
             0 Rows
           </div>
+
         </div>
 
         <div class="metric-card">
-          <h4>Active Folder</h4>
+
+          <h4>
+            Active Folder
+          </h4>
+
           <div id="stat-main-total">
             0 Rows
           </div>
+
         </div>
 
         <div class="metric-card">
-          <h4>Active Sub Route</h4>
+
+          <h4>
+            Active Sub Route
+          </h4>
+
           <div id="stat-sub-total">
             0 Rows
           </div>
+
         </div>
 
         <div class="metric-card">
-          <h4>Strikethrough Rows</h4>
+
+          <h4>
+            Strikethrough Rows
+          </h4>
+
           <div
             id="stat-strike-total"
             style="color:var(--danger);"
           >
             0 Rows
           </div>
+
         </div>
 
       </div>
@@ -1004,10 +1028,12 @@
       >
 
         <div class="splash-container">
+
           <div class="splash-text">
-            Paste sheet data stream or select a subfolder node from
-            the workbook index to mount sheet records.
+            Paste sheet data stream or select a subfolder node from the
+            workbook index to mount sheet records.
           </div>
+
         </div>
 
       </div>
