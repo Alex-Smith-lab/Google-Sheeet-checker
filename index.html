@@ -8,48 +8,28 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Sheet Task Extractor Pro - Direct Ingest Workspace</title>
+  <title>Sheet Task Extractor Pro</title>
 
   <style>
     :root {
-      --bg: #f6f8fb;
-      --panel: #ffffff;
-      --panel-2: #f9fafb;
-      --text: #172033;
-      --text-muted: #6b7280;
-      --border: #e5e7eb;
-      --border-strong: #d1d5db;
-      --primary: #6d28d9;
-      --primary-light: #ede9fe;
-      --primary-dark: #5b21b6;
-      --success: #16a34a;
-      --success-light: #dcfce7;
-      --danger: #dc2626;
-      --warning: #d97706;
-      --shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+      --bg: #0f0f11;
+      --panel: #121214;
+      --panel2: #18181b;
+      --panel3: #1d1d21;
 
-      --grid-header-bg: #f3f4f6;
-      --grid-header-text: #374151;
-    }
+      --text: #f5f5f7;
+      --muted: #9b9ba3;
 
-    [data-theme="dark"] {
-      --bg: #09090b;
-      --panel: #111113;
-      --panel-2: #18181b;
-      --text: #f4f4f5;
-      --text-muted: #a1a1aa;
-      --border: #27272a;
-      --border-strong: #3f3f46;
-      --primary: #8b5cf6;
-      --primary-light: #2e1065;
-      --primary-dark: #a78bfa;
-      --success: #22c55e;
-      --success-light: #052e16;
-      --danger: #ef4444;
-      --warning: #f59e0b;
+      --border: #29292e;
+      --border2: #38383f;
 
-      --grid-header-bg: #18181b;
-      --grid-header-text: #e4e4e7;
+      --purple: #8b5cf6;
+      --purple2: #a78bfa;
+      --purple-dark: #6d28d9;
+
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
     }
 
     * {
@@ -65,14 +45,14 @@
     }
 
     body {
+      background: var(--bg);
+      color: var(--text);
+
       font-family:
         Inter,
         Arial,
         Helvetica,
         sans-serif;
-
-      background: var(--bg);
-      color: var(--text);
 
       overflow: hidden;
     }
@@ -92,20 +72,20 @@
       display: none !important;
     }
 
-    /* =========================================================
-       HEADER
-       ========================================================= */
+    /* ======================================================
+       TOP HEADER
+       ====================================================== */
 
     .top-header {
-      height: 64px;
+      height: 62px;
 
       display: flex;
       align-items: center;
       justify-content: space-between;
 
-      padding: 0 20px;
+      padding: 0 16px;
 
-      background: var(--panel);
+      background: #111113;
 
       border-bottom: 1px solid var(--border);
 
@@ -116,529 +96,513 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .brand-icon {
-      width: 38px;
-      height: 38px;
+      width: 36px;
+      height: 36px;
 
-      border-radius: 10px;
+      border-radius: 9px;
 
       display: flex;
       align-items: center;
       justify-content: center;
 
-      background: var(--primary);
-      color: white;
+      background: var(--purple);
 
-      font-size: 18px;
-      font-weight: 800;
+      color: #fff;
+
+      font-size: 17px;
+
+      font-weight: 900;
     }
 
     .brand-title {
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--primary);
+      color: var(--purple2);
+
+      font-size: 15px;
+
+      font-weight: 900;
     }
 
     .brand-subtitle {
-      font-size: 11px;
-      color: var(--text-muted);
       margin-top: 2px;
+
+      color: var(--muted);
+
+      font-size: 9px;
     }
 
     .header-actions {
       display: flex;
+
       align-items: center;
-      gap: 8px;
+
+      gap: 7px;
     }
 
-    .header-btn {
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--text);
-
-      border-radius: 8px;
-
-      padding: 8px 12px;
-
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .header-btn:hover {
-      border-color: var(--primary);
-      color: var(--primary);
-    }
-
-    /* =========================================================
-       MAIN LAYOUT
-       ========================================================= */
-
-    .app-layout {
-      height: calc(100vh - 64px);
-
-      display: grid;
-
-      grid-template-columns:
-        290px
-        minmax(0, 1fr);
-    }
-
-    .sidebar {
-      border-right: 1px solid var(--border);
-
-      background: var(--panel);
-
-      overflow-y: auto;
-
-      padding: 16px;
-    }
-
-    .main-content {
-      min-width: 0;
-
-      display: flex;
-      flex-direction: column;
-
-      overflow: hidden;
-    }
-
-    /* =========================================================
-       SIDEBAR
-       ========================================================= */
-
-    .sidebar-section {
-      margin-bottom: 20px;
-    }
-
-    .sidebar-label {
-      font-size: 10px;
-      font-weight: 800;
-
-      letter-spacing: 0.08em;
-
-      color: var(--text-muted);
-
-      margin-bottom: 8px;
-    }
-
-    .folder-input-row {
-      display: flex;
-      gap: 6px;
-    }
-
-    .text-input,
-    .select-input,
-    .paste-input {
-      width: 100%;
-
-      border: 1px solid var(--border);
-
-      background: var(--panel-2);
-
-      color: var(--text);
-
-      outline: none;
-
-      border-radius: 8px;
-    }
-
-    .text-input,
-    .select-input {
-      height: 38px;
+    .header-button {
+      height: 32px;
 
       padding: 0 10px;
 
-      font-size: 12px;
-    }
+      border-radius: 7px;
 
-    .text-input:focus,
-    .select-input:focus,
-    .paste-input:focus {
-      border-color: var(--primary);
+      border: 1px solid var(--border2);
 
-      box-shadow:
-        0 0 0 3px
-        rgba(109, 40, 217, 0.10);
-    }
+      background: var(--panel2);
 
-    .sidebar-button {
-      width: 100%;
+      color: var(--text);
 
-      height: 38px;
-
-      border: 0;
-
-      border-radius: 8px;
-
-      background: var(--primary);
-
-      color: white;
-
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .sidebar-button:hover {
-      background: var(--primary-dark);
-    }
-
-    .sidebar-button.danger {
-      background: transparent;
-
-      border: 1px solid
-        rgba(220, 38, 38, 0.35);
-
-      color: var(--danger);
-    }
-
-    .sidebar-button.danger:hover {
-      background:
-        rgba(220, 38, 38, 0.08);
-    }
-
-    /* =========================================================
-       WORKBOOK TREE
-       ========================================================= */
-
-    #workbook-tree-container {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .tree-node {
-      border: 1px solid var(--border);
-
-      border-radius: 9px;
-
-      overflow: hidden;
-    }
-
-    .tree-header {
-      min-height: 38px;
-
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      padding: 7px 9px;
-
-      background: var(--panel-2);
-
-      font-size: 11px;
-      font-weight: 800;
-    }
-
-    .tree-children {
-      border-top: 1px solid var(--border);
-    }
-
-    .tree-item {
-      min-height: 38px;
-
-      padding: 7px 8px 7px 15px;
-
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      gap: 8px;
-
-      font-size: 11px;
-
-      border-bottom: 1px solid
-        var(--border);
-
-      cursor: pointer;
-    }
-
-    .tree-item:last-child {
-      border-bottom: 0;
-    }
-
-    .tree-item:hover {
-      background: var(--primary-light);
-    }
-
-    .tree-item.active {
-      background: var(--primary-light);
-
-      color: var(--primary);
-
-      font-weight: 800;
-    }
-
-    .tree-item-meta {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .count-badge {
-      display: inline-flex;
-
-      align-items: center;
-      justify-content: center;
-
-      min-width: 24px;
-
-      padding: 3px 6px;
-
-      border-radius: 999px;
-
-      background: var(--primary-light);
-
-      color: var(--primary);
-
-      font-size: 9px;
-      font-weight: 800;
-    }
-
-    .btn-delete-node {
-      border: 0;
-
-      background: transparent;
-
-      color: var(--danger);
-
-      font-size: 12px;
-
-      padding: 2px 4px;
-    }
-
-    /* =========================================================
-       CONTENT
-       ========================================================= */
-
-    .content-scroll {
-      height: 100%;
-
-      overflow: auto;
-
-      padding: 18px;
-    }
-
-    .content-card {
-      background: var(--panel);
-
-      border: 1px solid var(--border);
-
-      border-radius: 12px;
-
-      box-shadow: var(--shadow);
-
-      overflow: hidden;
-    }
-
-    .content-card-header {
-      padding: 16px;
-
-      border-bottom: 1px solid var(--border);
-    }
-
-    .content-card-title {
-      font-size: 14px;
-      font-weight: 800;
-    }
-
-    .content-card-subtitle {
-      font-size: 11px;
-
-      color: var(--text-muted);
-
-      margin-top: 4px;
-    }
-
-    /* =========================================================
-       INPUT WORKSPACE
-       ========================================================= */
-
-    .input-grid {
-      display: grid;
-
-      grid-template-columns:
-        1fr
-        1fr;
-
-      gap: 12px;
-
-      padding: 16px;
-    }
-
-    .field-group {
-      display: flex;
-      flex-direction: column;
-
-      gap: 6px;
-    }
-
-    .field-group.full {
-      grid-column: 1 / -1;
-    }
-
-    .field-label {
       font-size: 10px;
 
       font-weight: 800;
+    }
 
-      color: var(--text-muted);
+    .header-button:hover {
+      border-color: var(--purple);
+
+      color: var(--purple2);
+    }
+
+    /* ======================================================
+       MAIN APP
+       ====================================================== */
+
+    .app {
+      height: calc(100vh - 62px);
+
+      display: grid;
+
+      grid-template-columns:
+        330px
+        minmax(0, 1fr);
+    }
+
+    /* ======================================================
+       LEFT SIDEBAR
+       ====================================================== */
+
+    .sidebar {
+      height: 100%;
+
+      background: #111113;
+
+      border-right: 1px solid var(--border);
+
+      overflow-y: auto;
+
+      padding: 13px;
+    }
+
+    .sidebar-section {
+      margin-bottom: 13px;
+    }
+
+    .sidebar-title {
+      margin-bottom: 7px;
+
+      color: #aaaab2;
+
+      font-size: 9px;
+
+      font-weight: 900;
 
       text-transform: uppercase;
 
-      letter-spacing: 0.05em;
+      letter-spacing: .07em;
     }
 
-    .paste-input {
-      min-height: 180px;
+    .field-label {
+      margin-bottom: 5px;
+
+      color: #aaaab2;
+
+      font-size: 9px;
+
+      font-weight: 900;
+
+      text-transform: uppercase;
+
+      letter-spacing: .05em;
+    }
+
+    .input {
+      width: 100%;
+
+      height: 36px;
+
+      padding: 0 9px;
+
+      border: 1px solid var(--border2);
+
+      border-radius: 7px;
+
+      outline: none;
+
+      background: #18181b;
+
+      color: var(--text);
+
+      font-size: 10px;
+    }
+
+    .input:focus {
+      border-color: var(--purple);
+
+      box-shadow:
+        0 0 0 2px
+        rgba(139, 92, 246, .12);
+    }
+
+    .select {
+      width: 100%;
+
+      height: 36px;
+
+      padding: 0 8px;
+
+      border: 1px solid var(--border2);
+
+      border-radius: 7px;
+
+      outline: none;
+
+      background: #18181b;
+
+      color: var(--text);
+
+      font-size: 10px;
+    }
+
+    .textarea {
+      width: 100%;
+
+      min-height: 245px;
 
       resize: vertical;
 
-      padding: 12px;
+      padding: 9px;
 
-      font-size: 11px;
+      border: 1px solid var(--border2);
 
-      line-height: 1.5;
+      border-radius: 7px;
+
+      outline: none;
+
+      background: #18181b;
+
+      color: var(--text);
+
+      font-size: 10px;
+
+      line-height: 1.45;
     }
 
-    .process-row {
-      padding: 0 16px 16px;
+    .textarea:focus {
+      border-color: var(--purple);
 
-      display: flex;
-
-      align-items: center;
-
-      gap: 10px;
+      box-shadow:
+        0 0 0 2px
+        rgba(139, 92, 246, .12);
     }
 
     .process-button {
-      height: 40px;
+      width: 100%;
 
-      padding: 0 18px;
+      height: 39px;
 
       border: 0;
 
       border-radius: 8px;
 
-      background: var(--primary);
+      background: var(--purple);
 
-      color: white;
+      color: #fff;
 
-      font-size: 12px;
+      font-size: 11px;
 
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .process-button:hover {
-      background: var(--primary-dark);
+      background: var(--purple-dark);
     }
 
     .process-button:disabled {
-      opacity: 0.55;
+      opacity: .55;
 
       cursor: not-allowed;
     }
 
-    /* =========================================================
-       ASSIGNEE PILLS
-       ========================================================= */
+    .secondary-button {
+      width: 100%;
 
-    #assignee-selector-box {
-      padding: 0 16px 16px;
-    }
+      height: 34px;
 
-    .assignee-pills {
-      display: flex;
+      border: 1px solid var(--border2);
 
-      flex-wrap: wrap;
+      border-radius: 7px;
 
-      gap: 6px;
-    }
+      background: #18181b;
 
-    .assignee-pill {
-      border: 1px solid var(--border);
-
-      background: var(--panel-2);
-
-      color: var(--text-muted);
-
-      padding: 6px 9px;
-
-      border-radius: 999px;
+      color: var(--text);
 
       font-size: 10px;
-
-      font-weight: 700;
-
-      cursor: pointer;
-    }
-
-    .assignee-pill:hover {
-      border-color: var(--primary);
-
-      color: var(--primary);
-    }
-
-    .assignee-pill.selected {
-      border-color: var(--primary);
-
-      background: var(--primary-light);
-
-      color: var(--primary);
-    }
-
-    /* =========================================================
-       STATS
-       ========================================================= */
-
-    .stats-grid {
-      display: grid;
-
-      grid-template-columns:
-        repeat(4, minmax(0, 1fr));
-
-      gap: 10px;
-
-      margin-top: 16px;
-    }
-
-    .stat-card {
-      background: var(--panel);
-
-      border: 1px solid var(--border);
-
-      border-radius: 10px;
-
-      padding: 12px;
-    }
-
-    .stat-label {
-      font-size: 9px;
-
-      color: var(--text-muted);
-
-      text-transform: uppercase;
 
       font-weight: 800;
     }
 
-    .stat-value {
-      margin-top: 5px;
+    .secondary-button:hover {
+      border-color: var(--purple);
 
-      font-size: 16px;
-
-      font-weight: 900;
-
-      color: var(--primary);
+      color: var(--purple2);
     }
 
-    /* =========================================================
-       VIEW NAVIGATION
-       ========================================================= */
+    .danger-button {
+      width: 100%;
 
-    #view-navigation-row {
+      height: 34px;
+
+      border: 1px solid rgba(239,68,68,.35);
+
+      border-radius: 7px;
+
+      background: transparent;
+
+      color: #f87171;
+
+      font-size: 10px;
+
+      font-weight: 800;
+    }
+
+    .danger-button:hover {
+      background: rgba(239,68,68,.08);
+    }
+
+    .small-gap {
+      height: 7px;
+    }
+
+    /* ======================================================
+       ASSIGNEE DETECTION
+       ====================================================== */
+
+    .detection-box {
+      padding: 8px;
+
+      border: 1px solid var(--border);
+
+      border-radius: 7px;
+
+      background: #151517;
+
+      color: var(--muted);
+
+      font-size: 9px;
+
+      line-height: 1.5;
+    }
+
+    .detection-ok {
+      color: var(--green);
+
+      font-weight: 900;
+    }
+
+    .detection-warning {
+      color: var(--yellow);
+
+      font-weight: 900;
+    }
+
+    .assignee-list {
+      margin-top: 7px;
+
+      display: flex;
+
+      flex-wrap: wrap;
+
+      gap: 5px;
+    }
+
+    .assignee-pill {
+      padding: 4px 6px;
+
+      border-radius: 999px;
+
+      background: rgba(139,92,246,.12);
+
+      border: 1px solid rgba(139,92,246,.25);
+
+      color: var(--purple2);
+
+      font-size: 8px;
+
+      font-weight: 800;
+    }
+
+    /* ======================================================
+       FOLDER TREE
+       ====================================================== */
+
+    .tree {
+      display: flex;
+
+      flex-direction: column;
+
+      gap: 5px;
+    }
+
+    .tree-empty {
+      padding: 9px;
+
+      border: 1px dashed var(--border2);
+
+      border-radius: 7px;
+
+      color: var(--muted);
+
+      font-size: 9px;
+
+      line-height: 1.5;
+    }
+
+    .folder-block {
+      border: 1px solid var(--border);
+
+      border-radius: 7px;
+
+      overflow: hidden;
+    }
+
+    .folder-header {
+      min-height: 34px;
+
+      padding: 7px 8px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: space-between;
+
+      background: #18181b;
+
+      cursor: pointer;
+    }
+
+    .folder-header:hover {
+      background: #1d1d21;
+    }
+
+    .folder-name {
+      color: var(--text);
+
+      font-size: 9px;
+
+      font-weight: 900;
+    }
+
+    .folder-count {
+      padding: 2px 5px;
+
+      border-radius: 999px;
+
+      background: rgba(139,92,246,.12);
+
+      color: var(--purple2);
+
+      font-size: 8px;
+
+      font-weight: 900;
+    }
+
+    .folder-routes {
+      border-top: 1px solid var(--border);
+    }
+
+    .route-item {
+      min-height: 32px;
+
+      padding: 6px 8px 6px 13px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: space-between;
+
+      border-bottom: 1px solid var(--border);
+
+      cursor: pointer;
+    }
+
+    .route-item:last-child {
+      border-bottom: 0;
+    }
+
+    .route-item:hover {
+      background: rgba(139,92,246,.07);
+    }
+
+    .route-item.active {
+      background: rgba(139,92,246,.13);
+
+      color: var(--purple2);
+    }
+
+    .route-name {
+      max-width: 210px;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      white-space: nowrap;
+
+      color: #c8c8ce;
+
+      font-size: 9px;
+    }
+
+    .route-item.active .route-name {
+      color: var(--purple2);
+
+      font-weight: 900;
+    }
+
+    .route-count {
+      color: var(--muted);
+
+      font-size: 8px;
+    }
+
+    /* ======================================================
+       RIGHT DATA AREA
+       ====================================================== */
+
+    .workspace {
+      min-width: 0;
+
+      height: 100%;
+
+      overflow: hidden;
+
+      display: flex;
+
+      flex-direction: column;
+
+      background: var(--bg);
+    }
+
+    .workspace-toolbar {
+      min-height: 48px;
+
+      padding: 7px 12px;
+
       display: flex;
 
       align-items: center;
@@ -647,21 +611,21 @@
 
       gap: 10px;
 
-      padding: 12px 16px;
-
       border-bottom: 1px solid var(--border);
 
-      background: var(--panel);
+      background: #111113;
     }
 
-    .view-title-wrap {
+    .workspace-info {
       min-width: 0;
     }
 
-    #view-title {
-      font-size: 12px;
+    .workspace-title {
+      color: var(--text);
 
-      font-weight: 800;
+      font-size: 11px;
+
+      font-weight: 900;
 
       white-space: nowrap;
 
@@ -670,71 +634,114 @@
       text-overflow: ellipsis;
     }
 
-    #view-range-indicator {
-      font-size: 10px;
+    .workspace-subtitle {
+      margin-top: 2px;
 
-      color: var(--text-muted);
+      color: var(--muted);
 
-      margin-top: 3px;
+      font-size: 8px;
     }
 
-    .view-actions {
+    .workspace-actions {
       display: flex;
 
-      gap: 7px;
+      align-items: center;
+
+      gap: 5px;
 
       flex-shrink: 0;
     }
 
-    .view-action-btn {
-      height: 34px;
+    .toolbar-button {
+      height: 30px;
 
-      border: 1px solid var(--border);
+      padding: 0 9px;
 
-      background: var(--panel);
+      border: 1px solid var(--border2);
+
+      border-radius: 6px;
+
+      background: #18181b;
 
       color: var(--text);
 
-      border-radius: 7px;
-
-      padding: 0 10px;
-
-      font-size: 10px;
+      font-size: 9px;
 
       font-weight: 800;
     }
 
-    .view-action-btn:hover {
-      border-color: var(--primary);
+    .toolbar-button:hover {
+      border-color: var(--purple);
 
-      color: var(--primary);
+      color: var(--purple2);
     }
 
-    .view-action-btn.primary {
-      background: var(--primary);
+    /* ======================================================
+       STATS
+       ====================================================== */
 
-      border-color: var(--primary);
+    .stats {
+      display: grid;
 
-      color: white;
+      grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+      gap: 7px;
+
+      padding: 8px 12px;
+
+      border-bottom: 1px solid var(--border);
+
+      background: #111113;
     }
 
-    .view-action-btn.primary:hover {
-      background: var(--primary-dark);
+    .stat {
+      min-width: 0;
+
+      padding: 7px 8px;
+
+      border: 1px solid var(--border);
+
+      border-radius: 6px;
+
+      background: #151517;
     }
 
-    /* =========================================================
-       TABLE
-       ========================================================= */
+    .stat-label {
+      color: var(--muted);
 
-    .grid-wrapper {
-      width: 100%;
+      font-size: 7px;
+
+      font-weight: 900;
+
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      margin-top: 3px;
+
+      color: var(--purple2);
+
+      font-size: 13px;
+
+      font-weight: 900;
+    }
+
+    /* ======================================================
+       DATA TABLE
+       ====================================================== */
+
+    .table-container {
+      flex: 1;
+
+      min-height: 0;
 
       overflow: auto;
 
-      max-height: calc(100vh - 240px);
+      position: relative;
     }
 
-    #grid-output-view table {
+    #data-table {
       width: max-content;
 
       min-width: 100%;
@@ -743,20 +750,20 @@
 
       border-spacing: 0;
 
-      font-size: 10px;
+      font-size: 9px;
     }
 
-    #grid-output-view th,
-    #grid-output-view td {
-      padding: 8px 10px;
+    #data-table th,
+    #data-table td {
+      padding: 7px 9px;
 
-      border-right: 1px solid
-        var(--border);
+      border-right: 1px solid var(--border);
 
-      border-bottom: 1px solid
-        var(--border);
+      border-bottom: 1px solid var(--border);
 
-      max-width: 320px;
+      max-width: 340px;
+
+      min-width: 80px;
 
       white-space: nowrap;
 
@@ -764,100 +771,116 @@
 
       text-overflow: ellipsis;
 
+      text-align: left;
+
       vertical-align: middle;
     }
 
-    #grid-output-view th {
+    /*
+       IMPORTANT:
+       Header remains frozen while user scrolls.
+    */
+
+    #data-table thead th {
       position: sticky;
 
       top: 0;
 
-      z-index: 5;
+      z-index: 20;
 
-      background:
-        var(--grid-header-bg);
+      background: #1b1b1f;
 
-      color:
-        var(--grid-header-text);
+      color: #d8d8df;
 
       font-weight: 900;
 
-      text-align: left;
+      box-shadow:
+        0 1px 0 var(--border);
     }
 
-    #grid-output-view td {
-      background: var(--panel);
+    #data-table tbody td {
+      background: #111113;
 
-      color: var(--text);
+      color: #d0d0d5;
     }
 
-    #grid-output-view tr:hover td {
-      background: var(--panel-2);
+    #data-table tbody tr:hover td {
+      background: #18181b;
     }
 
-    #grid-output-view th.spacer-col,
-    #grid-output-view td.spacer-col {
-      width: 16px;
-
-      min-width: 16px;
-
-      max-width: 16px;
-
-      padding: 0;
-
-      background: var(--bg);
+    #data-table th:first-child {
+      border-left: 1px solid var(--border);
     }
 
-    .row-strikethrough td {
-      text-decoration: line-through;
-
-      opacity: 0.58;
+    #data-table td:first-child {
+      border-left: 1px solid var(--border);
     }
 
-    /* =========================================================
-       GREEN HEADER FLASH - TWO TIMES
-       ========================================================= */
+    .header-assignee {
+      position: sticky;
 
-    @keyframes processedHeaderFlash {
-      0%,
-      100% {
-        background:
-          var(--grid-header-bg);
+      top: 0;
+    }
 
-        color:
-          var(--grid-header-text);
+    /* ======================================================
+       GREEN HEADER FLASH
+       EXACTLY TWO FLASHES
+       ====================================================== */
+
+    @keyframes headerGreenFlash {
+      0% {
+        background: #1b1b1f;
+        color: #d8d8df;
+        box-shadow:
+          0 1px 0 var(--border);
       }
 
-      12%,
-      38% {
+      15% {
         background: #22c55e !important;
-
         color: #ffffff !important;
+        box-shadow:
+          0 0 0 2px #22c55e,
+          0 0 18px rgba(34,197,94,.75);
       }
 
-      25%,
-      51% {
-        background:
-          var(--grid-header-bg);
+      30% {
+        background: #1b1b1f;
+        color: #d8d8df;
+        box-shadow:
+          0 1px 0 var(--border);
+      }
 
-        color:
-          var(--grid-header-text);
+      45% {
+        background: #22c55e !important;
+        color: #ffffff !important;
+        box-shadow:
+          0 0 0 2px #22c55e,
+          0 0 18px rgba(34,197,94,.75);
+      }
+
+      60%,
+      100% {
+        background: #1b1b1f;
+        color: #d8d8df;
+        box-shadow:
+          0 1px 0 var(--border);
       }
     }
 
-    .processed-header-flash {
+    .flash-green-twice {
       animation:
-        processedHeaderFlash
-        0.72s ease-in-out
-        2;
+        headerGreenFlash
+        1.15s
+        ease-in-out
+        1;
     }
 
-    /* =========================================================
-       SPLASH
-       ========================================================= */
+    /* ======================================================
+       EMPTY WORKSPACE
+       ====================================================== */
 
-    .splash-container {
-      min-height: 350px;
+    .empty-workspace {
+      height: 100%;
 
       display: flex;
 
@@ -868,28 +891,32 @@
       padding: 30px;
     }
 
-    .splash-text {
-      max-width: 520px;
+    .empty-box {
+      max-width: 500px;
 
       text-align: center;
 
-      color: var(--text-muted);
+      color: var(--muted);
 
-      font-size: 12px;
+      font-size: 10px;
 
       line-height: 1.7;
     }
 
-    /* =========================================================
-       LOADER
-       ========================================================= */
+    .empty-box strong {
+      color: var(--purple2);
+    }
 
-    #view-loader-overlay {
+    /* ======================================================
+       LOADER
+       ====================================================== */
+
+    #loader-overlay {
       position: fixed;
 
       inset: 0;
 
-      z-index: 1000;
+      z-index: 5000;
 
       display: flex;
 
@@ -898,362 +925,298 @@
       justify-content: center;
 
       background:
-        rgba(9, 9, 11, 0.72);
+        rgba(5,5,7,.78);
 
       backdrop-filter:
-        blur(8px);
+        blur(6px);
     }
 
-    #view-loader-overlay.hidden {
-      display: none !important;
-    }
+    .loader-card {
+      width: 430px;
 
-    .view-loader-card {
-      width: min(480px, calc(100vw - 32px));
+      max-width:
+        calc(100vw - 30px);
 
-      background: var(--panel);
+      padding: 23px;
 
-      border: 1px solid var(--border);
+      border: 1px solid var(--border2);
 
-      border-radius: 16px;
+      border-radius: 13px;
 
-      padding: 25px;
+      background: #141416;
 
       box-shadow:
         0 25px 70px
-        rgba(0, 0, 0, 0.28);
+        rgba(0,0,0,.55);
 
       text-align: center;
     }
 
-    .view-loader-kicker {
-      font-size: 9px;
+    .loader-circle {
+      width: 54px;
 
-      font-weight: 900;
+      height: 54px;
 
-      letter-spacing: 0.14em;
-
-      color: var(--primary);
-
-      margin-bottom: 10px;
-    }
-
-    #loader-route-name {
-      font-size: 10px;
-
-      color: var(--text-muted);
-
-      margin-bottom: 10px;
-
-      white-space: nowrap;
-
-      overflow: hidden;
-
-      text-overflow: ellipsis;
-    }
-
-    .loader-spinner {
-      width: 58px;
-
-      height: 58px;
+      margin: 0 auto 14px;
 
       border-radius: 50%;
 
-      border: 4px solid
-        var(--border);
+      border: 4px solid #2b2b30;
 
-      border-top-color:
-        var(--primary);
+      border-top-color: var(--purple);
 
       animation:
-        loaderSpin
-        0.8s linear
+        spinLoader
+        .8s
+        linear
         infinite;
-
-      margin: 0 auto 18px;
     }
 
-    @keyframes loaderSpin {
+    @keyframes spinLoader {
       to {
         transform: rotate(360deg);
       }
     }
 
-    #view-loader-text {
-      font-size: 18px;
+    .loader-title {
+      color: var(--purple2);
+
+      font-size: 8px;
+
+      font-weight: 900;
+
+      letter-spacing: .13em;
+
+      text-transform: uppercase;
+    }
+
+    #loader-message {
+      margin-top: 8px;
+
+      color: var(--text);
+
+      font-size: 15px;
 
       font-weight: 900;
     }
 
-    #view-loader-detail {
-      margin-top: 6px;
+    #loader-detail {
+      margin-top: 5px;
 
-      color: var(--text-muted);
+      color: var(--muted);
 
-      font-size: 11px;
+      font-size: 9px;
     }
 
-    .loader-progress-track {
-      width: 100%;
+    .loader-progress {
+      height: 6px;
 
-      height: 7px;
+      margin-top: 17px;
 
       border-radius: 999px;
 
-      background: var(--border);
+      background: #27272b;
 
       overflow: hidden;
-
-      margin-top: 20px;
     }
 
-    #view-loader-progress {
+    #loader-progress-bar {
       width: 0;
 
       height: 100%;
 
+      background: var(--purple);
+
       border-radius: 999px;
 
-      background: var(--primary);
-
-      transition:
-        width 0.35s ease;
+      transition: width .25s ease;
     }
 
     .loader-steps {
+      margin-top: 14px;
+
       display: grid;
 
       grid-template-columns:
         repeat(5, 1fr);
 
-      gap: 6px;
-
-      margin-top: 18px;
+      gap: 4px;
     }
 
     .loader-step {
-      min-width: 0;
+      color: #68686f;
 
-      font-size: 8px;
-
-      color: var(--text-muted);
-
-      font-weight: 800;
-    }
-
-    .loader-step-dot {
-      width: 9px;
-
-      height: 9px;
-
-      border-radius: 50%;
-
-      background: var(--border);
-
-      margin: 0 auto 5px;
-    }
-
-    .loader-step.active
-    .loader-step-dot {
-      background: var(--primary);
-
-      box-shadow:
-        0 0 0 4px
-        var(--primary-light);
-    }
-
-    .loader-step.done
-    .loader-step-dot {
-      background: var(--success);
-    }
-
-    .loader-step.success
-    .loader-step-dot {
-      background: var(--success);
-
-      box-shadow:
-        0 0 0 4px
-        var(--success-light);
-    }
-
-    #btn-close-loader {
-      margin-top: 18px;
-
-      height: 34px;
-
-      padding: 0 15px;
-
-      border: 1px solid var(--border);
-
-      border-radius: 7px;
-
-      background: var(--panel);
-
-      color: var(--text);
-
-      font-size: 10px;
-
-      font-weight: 800;
-    }
-
-    #btn-close-loader:hover {
-      border-color: var(--danger);
-
-      color: var(--danger);
-    }
-
-    /* =========================================================
-       OFFLINE
-       ========================================================= */
-
-    #global-offline-blocker {
-      position: fixed;
-
-      inset: 0;
-
-      z-index: 2000;
-
-      background: var(--bg);
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: center;
-    }
-
-    .offline-card {
-      width: min(430px, calc(100vw - 32px));
-
-      background: var(--panel);
-
-      border: 1px solid var(--border);
-
-      border-radius: 14px;
-
-      padding: 28px;
-
-      text-align: center;
-
-      box-shadow: var(--shadow);
-    }
-
-    .offline-icon {
-      font-size: 35px;
-
-      margin-bottom: 10px;
-    }
-
-    .offline-title {
-      font-size: 18px;
+      font-size: 7px;
 
       font-weight: 900;
     }
 
-    .offline-text {
-      margin-top: 8px;
+    .loader-dot {
+      width: 8px;
 
-      color: var(--text-muted);
+      height: 8px;
 
-      font-size: 11px;
+      margin: 0 auto 4px;
 
-      line-height: 1.6;
+      border-radius: 50%;
+
+      background: #333338;
     }
 
-    /* =========================================================
+    .loader-step.active {
+      color: var(--purple2);
+    }
+
+    .loader-step.active .loader-dot {
+      background: var(--purple);
+
+      box-shadow:
+        0 0 0 3px
+        rgba(139,92,246,.15);
+    }
+
+    .loader-step.done .loader-dot {
+      background: var(--green);
+    }
+
+    .loader-close {
+      margin-top: 16px;
+
+      height: 31px;
+
+      padding: 0 13px;
+
+      border: 1px solid var(--border2);
+
+      border-radius: 6px;
+
+      background: #18181b;
+
+      color: var(--text);
+
+      font-size: 9px;
+
+      font-weight: 800;
+    }
+
+    .loader-close:hover {
+      border-color: var(--red);
+
+      color: #f87171;
+    }
+
+    /* ======================================================
+       TOAST
+       ====================================================== */
+
+    #toast-container {
+      position: fixed;
+
+      right: 15px;
+
+      bottom: 15px;
+
+      z-index: 7000;
+
+      display: flex;
+
+      flex-direction: column;
+
+      gap: 6px;
+    }
+
+    .toast {
+      min-width: 220px;
+
+      max-width: 350px;
+
+      padding: 9px 11px;
+
+      border: 1px solid var(--border2);
+
+      border-radius: 7px;
+
+      background: #19191c;
+
+      color: var(--text);
+
+      box-shadow:
+        0 10px 30px
+        rgba(0,0,0,.35);
+
+      font-size: 9px;
+
+      line-height: 1.4;
+    }
+
+    .toast.success {
+      border-color:
+        rgba(34,197,94,.45);
+    }
+
+    .toast.error {
+      border-color:
+        rgba(239,68,68,.45);
+    }
+
+    /* ======================================================
        RESPONSIVE
-       ========================================================= */
+       ====================================================== */
 
     @media (max-width: 900px) {
-      .app-layout {
+
+      .app {
         grid-template-columns:
-          230px
-          minmax(0, 1fr);
+          280px
+          minmax(0,1fr);
       }
 
-      .stats-grid {
+      .stats {
         grid-template-columns:
-          repeat(2, minmax(0, 1fr));
+          repeat(2, minmax(0,1fr));
       }
+
     }
 
     @media (max-width: 700px) {
+
       body {
         overflow: auto;
       }
 
-      .app-layout {
+      .app {
         height: auto;
 
         min-height:
-          calc(100vh - 64px);
+          calc(100vh - 62px);
 
         grid-template-columns: 1fr;
       }
 
       .sidebar {
+        height: auto;
+
+        max-height: 600px;
+
         border-right: 0;
 
-        border-bottom: 1px solid
-          var(--border);
+        border-bottom: 1px solid var(--border);
       }
 
-      .input-grid {
-        grid-template-columns: 1fr;
+      .workspace {
+        min-height: 600px;
       }
 
-      .field-group.full {
-        grid-column: auto;
-      }
-
-      .stats-grid {
-        grid-template-columns:
-          1fr 1fr;
-      }
-
-      .content-scroll {
-        overflow: visible;
-      }
-
-      .grid-wrapper {
-        max-height: 60vh;
-      }
     }
   </style>
 </head>
 
+
 <body>
 
-  <!-- =======================================================
-       OFFLINE SCREEN
-       ======================================================= -->
-
-  <div
-    id="global-offline-blocker"
-    class="hidden"
-  >
-    <div class="offline-card">
-
-      <div class="offline-icon">
-        ⚠️
-      </div>
-
-      <div class="offline-title">
-        No Internet Connection
-      </div>
-
-      <div class="offline-text">
-        Please reconnect your internet connection
-        before processing or opening workspace data.
-      </div>
-
-    </div>
-  </div>
-
-
-  <!-- =======================================================
-       TOP HEADER
-       ======================================================= -->
+  <!-- ======================================================
+       HEADER
+       ====================================================== -->
 
   <header class="top-header">
 
@@ -1281,8 +1244,9 @@
     <div class="header-actions">
 
       <button
-        id="theme-toggle-btn"
-        class="header-btn"
+        id="theme-button"
+        class="header-button"
+        type="button"
       >
         ◑ Dark Mode
       </button>
@@ -1292,82 +1256,153 @@
   </header>
 
 
-  <!-- =======================================================
-       APP LAYOUT
-       ======================================================= -->
+  <!-- ======================================================
+       APP
+       ====================================================== -->
 
-  <div class="app-layout">
+  <div class="app">
 
 
-    <!-- =====================================================
-         SIDEBAR
-         ===================================================== -->
+    <!-- ====================================================
+         LEFT SIDE
+         ==================================================== -->
 
     <aside class="sidebar">
 
 
+      <!-- MAIN FOLDER -->
+
       <div class="sidebar-section">
 
-        <div class="sidebar-label">
-          FOLDER
+        <div class="sidebar-title">
+          Main Folder / Sheet Name
         </div>
 
-        <div class="folder-input-row">
-
-          <input
-            id="main-sheet-input"
-            class="text-input"
-            type="text"
-            placeholder="Folder name"
-          >
-
+        <div class="field-label">
+          Enter main folder
         </div>
 
-        <div style="height:7px;"></div>
-
-        <select
-          id="main-sheet-select"
-          class="select-input"
+        <input
+          id="main-folder"
+          class="input"
+          type="text"
+          placeholder="e.g. 18(NEW TEAM)"
+          autocomplete="off"
         >
-          <option
-            value=""
-            selected
-          >
-            -- Select Existing Folder --
-          </option>
-        </select>
 
       </div>
 
 
+      <!-- SUB ROUTE -->
+
       <div class="sidebar-section">
 
-        <div class="sidebar-label">
-          WORKBOOK INDEX
+        <div class="field-label">
+          Sub-Route / Sheet Name
         </div>
 
-        <div
-          id="workbook-tree-container"
+        <input
+          id="sub-route"
+          class="input"
+          type="text"
+          placeholder="e.g. Route 48"
+          autocomplete="off"
         >
-          <div
-            style="
-              padding:10px;
-              color:var(--text-muted);
-              font-size:11px;
-            "
-          >
-            No datasets loaded.
-          </div>
-        </div>
 
       </div>
 
+
+      <!-- PASTE -->
+
+      <div class="sidebar-section">
+
+        <div class="sidebar-title">
+          Paste Sheet Data
+        </div>
+
+        <div class="field-label">
+          Data Stream
+        </div>
+
+        <textarea
+          id="paste-data"
+          class="textarea"
+          placeholder="Copy rows directly from Google Sheets and paste them here..."
+          spellcheck="false"
+        ></textarea>
+
+      </div>
+
+
+      <!-- PROCESS -->
 
       <div class="sidebar-section">
 
         <button
-          id="clear-db-btn"
-          class="sidebar-button danger"
+          id="process-button"
+          class="process-button"
+          type="button"
+        >
+          Process & Store Data
+        </button>
+
+      </div>
+
+
+      <!-- HEADER DETECTION -->
+
+      <div class="sidebar-section">
+
+        <div class="sidebar-title">
+          Header Detection
+        </div>
+
+        <div
+          id="detection-box"
+          class="detection-box"
+        >
+          Paste sheet data first. The program will automatically
+          inspect the pasted rows and locate the actual header row.
+        </div>
+
+        <div
+          id="assignee-list"
+          class="assignee-list"
+        ></div>
+
+      </div>
+
+
+      <!-- STORED FOLDERS -->
+
+      <div class="sidebar-section">
+
+        <div class="sidebar-title">
+          Workbook Index
+        </div>
+
+        <div
+          id="folder-tree"
+          class="tree"
+        >
+
+          <div class="tree-empty">
+            No stored folders yet.
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- CLEAR -->
+
+      <div class="sidebar-section">
+
+        <button
+          id="clear-data-button"
+          class="danger-button"
+          type="button"
         >
           Clear Local Database
         </button>
@@ -1375,494 +1410,268 @@
       </div>
 
 
-      <!-- ===================================================
-           GLOBAL STATS
-           =================================================== -->
-
-      <div class="sidebar-section">
-
-        <div class="sidebar-label">
-          GLOBAL METRICS
-        </div>
-
-        <div
-          id="stat-grand-total"
-          style="
-            font-size:11px;
-            color:var(--text-muted);
-            margin-bottom:6px;
-          "
-        >
-          0 Rows
-        </div>
-
-        <div
-          id="stat-main-total"
-          style="
-            font-size:11px;
-            color:var(--text-muted);
-            margin-bottom:6px;
-          "
-        >
-          0 Rows
-        </div>
-
-        <div
-          id="stat-sub-total"
-          style="
-            font-size:11px;
-            color:var(--text-muted);
-            margin-bottom:6px;
-          "
-        >
-          0 Rows
-        </div>
-
-        <div
-          id="stat-strike-total"
-          style="
-            font-size:11px;
-            color:var(--danger);
-          "
-        >
-          0 Rows
-        </div>
-
-      </div>
-
     </aside>
 
 
-    <!-- =====================================================
-         MAIN CONTENT
-         ===================================================== -->
+    <!-- ====================================================
+         RIGHT SIDE
+         ==================================================== -->
 
-    <main class="main-content">
-
-      <div class="content-scroll">
+    <main class="workspace">
 
 
-        <!-- =================================================
-             INPUT CARD
-             ================================================= -->
+      <!-- TOOLBAR -->
 
-        <section class="content-card">
+      <div class="workspace-toolbar">
 
-          <div class="content-card-header">
-
-            <div class="content-card-title">
-              Paste Sheet Data
-            </div>
-
-            <div class="content-card-subtitle">
-              Paste directly from Google Sheets.
-              Headers are detected automatically.
-            </div>
-
-          </div>
-
-
-          <div class="input-grid">
-
-
-            <div class="field-group">
-
-              <label
-                class="field-label"
-                for="sub-sheet-input"
-              >
-                Sub-Route / Sheet Name
-              </label>
-
-              <input
-                id="sub-sheet-input"
-                class="text-input"
-                type="text"
-                placeholder="e.g. Route 48"
-              >
-
-            </div>
-
-
-            <div class="field-group">
-
-              <label
-                class="field-label"
-              >
-                Header Detection
-              </label>
-
-              <div
-                style="
-                  height:38px;
-                  display:flex;
-                  align-items:center;
-                  padding:0 10px;
-                  border:1px solid var(--border);
-                  border-radius:8px;
-                  background:var(--panel-2);
-                  color:var(--text-muted);
-                  font-size:10px;
-                "
-              >
-                Assignee and other headers
-                are detected from the pasted sheet.
-              </div>
-
-            </div>
-
-
-            <div class="field-group full">
-
-              <label
-                class="field-label"
-                for="paste-input"
-              >
-                Data Stream
-              </label>
-
-              <textarea
-                id="paste-input"
-                class="paste-input"
-                placeholder="Copy rows including the header from Google Sheets and paste them here..."
-              ></textarea>
-
-            </div>
-
-          </div>
-
-
-          <!-- ===============================================
-               ASSIGNEE FILTER
-               =============================================== -->
+        <div class="workspace-info">
 
           <div
-            id="assignee-selector-box"
-            class="hidden"
+            id="workspace-title"
+            class="workspace-title"
           >
-
-            <div
-              class="field-label"
-              style="margin-bottom:7px;"
-            >
-              Detected Assignees
-            </div>
-
-            <div
-              id="assignee-pills-list"
-              class="assignee-pills"
-            ></div>
-
+            No Data Loaded
           </div>
 
-
-          <div class="process-row">
-
-            <button
-              id="process-entry-btn"
-              class="process-button"
-            >
-              Process & Store Data
-            </button>
-
-          </div>
-
-        </section>
-
-
-        <!-- =================================================
-             STATS
-             ================================================= -->
-
-        <div class="stats-grid">
-
-          <div class="stat-card">
-
-            <div class="stat-label">
-              All Data
-            </div>
-
-            <div
-              id="stat-grand-total-card"
-              class="stat-value"
-            >
-              --
-            </div>
-
-          </div>
-
-
-          <div class="stat-card">
-
-            <div class="stat-label">
-              Current Folder
-            </div>
-
-            <div
-              id="stat-main-total-card"
-              class="stat-value"
-            >
-              --
-            </div>
-
-          </div>
-
-
-          <div class="stat-card">
-
-            <div class="stat-label">
-              Current Route
-            </div>
-
-            <div
-              id="stat-sub-total-card"
-              class="stat-value"
-            >
-              --
-            </div>
-
-          </div>
-
-
-          <div class="stat-card">
-
-            <div class="stat-label">
-              Strikethrough
-            </div>
-
-            <div
-              id="stat-strike-total-card"
-              class="stat-value"
-              style="color:var(--danger);"
-            >
-              --
-            </div>
-
+          <div
+            id="workspace-subtitle"
+            class="workspace-subtitle"
+          >
+            Paste data from Google Sheets on the left.
           </div>
 
         </div>
 
 
-        <!-- =================================================
-             VIEW CARD
-             ================================================= -->
+        <div class="workspace-actions">
 
-        <section
-          class="content-card"
-          style="
-            margin-top:16px;
-          "
-        >
-
-
-          <div
-            id="view-navigation-row"
-            class="hidden"
+          <button
+            id="export-button"
+            class="toolbar-button"
+            type="button"
           >
+            Export CSV
+          </button>
 
-            <div class="view-title-wrap">
-
-              <div id="view-title">
-                Active Workspace View
-              </div>
-
-              <div
-                id="view-range-indicator"
-              ></div>
-
-            </div>
-
-
-            <div class="view-actions">
-
-              <button
-                id="btn-create-gsheet"
-                class="view-action-btn primary"
-              >
-                Open Google Sheets
-              </button>
-
-              <button
-                id="btn-export-csv"
-                class="view-action-btn"
-              >
-                Export CSV
-              </button>
-
-              <button
-                id="btn-close-view"
-                class="view-action-btn"
-              >
-                Close
-              </button>
-
-            </div>
-
-          </div>
-
-
-          <div
-            id="grid-output-view"
-            class="grid-wrapper"
+          <button
+            id="close-view-button"
+            class="toolbar-button"
+            type="button"
           >
+            Close View
+          </button>
 
-            <div class="splash-container">
-
-              <div class="splash-text">
-
-                Paste sheet data stream or select
-                a subfolder node from the workbook
-                index to mount sheet records.
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </section>
-
+        </div>
 
       </div>
+
+
+      <!-- STATS -->
+
+      <div class="stats">
+
+        <div class="stat">
+
+          <div class="stat-label">
+            Total Rows
+          </div>
+
+          <div
+            id="total-rows"
+            class="stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+
+        <div class="stat">
+
+          <div class="stat-label">
+            Columns
+          </div>
+
+          <div
+            id="total-columns"
+            class="stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+
+        <div class="stat">
+
+          <div class="stat-label">
+            Assignees
+          </div>
+
+          <div
+            id="total-assignees"
+            class="stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+
+        <div class="stat">
+
+          <div class="stat-label">
+            Strikethrough
+          </div>
+
+          <div
+            id="total-struck"
+            class="stat-value"
+          >
+            0
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- TABLE -->
+
+      <div
+        id="table-container"
+        class="table-container"
+      >
+
+        <div class="empty-workspace">
+
+          <div class="empty-box">
+
+            <strong>Ready.</strong>
+
+            Paste your Google Sheets data in the
+            left panel, enter the Main Folder / Sheet Name,
+            then click <strong>Process & Store Data</strong>.
+
+            <br><br>
+
+            The program will automatically detect the header
+            row and dynamically locate the Assignee column.
+
+          </div>
+
+        </div>
+
+      </div>
+
 
     </main>
 
   </div>
 
 
-  <!-- =======================================================
-       PROCESS / ROUTE LOADER
-       ======================================================= -->
+  <!-- ======================================================
+       LOADER
+       ====================================================== -->
 
   <div
-    id="view-loader-overlay"
+    id="loader-overlay"
     class="hidden"
   >
 
-    <div class="view-loader-card">
+    <div class="loader-card">
 
+      <div class="loader-circle"></div>
 
-      <div
-        id="view-loader-kicker"
-        class="view-loader-kicker"
-      >
-        DATA WORKFLOW
+      <div class="loader-title">
+        DATA PROCESSING
       </div>
 
-
       <div
-        id="loader-route-name"
-        class="hidden"
-      ></div>
-
-
-      <div class="loader-spinner"></div>
-
-
-      <div
-        id="view-loader-text"
+        id="loader-message"
       >
-        Reading data
+        Reading Data
       </div>
 
-
       <div
-        id="view-loader-detail"
+        id="loader-detail"
       >
-        Reading the selected data stream...
+        Reading pasted sheet data...
       </div>
 
-
-      <div class="loader-progress-track">
+      <div class="loader-progress">
 
         <div
-          id="view-loader-progress"
+          id="loader-progress-bar"
         ></div>
 
       </div>
 
-
       <div class="loader-steps">
 
-
         <div
+          id="step-reading"
           class="loader-step"
-          data-step="reading"
         >
-
-          <div class="loader-step-dot"></div>
-
+          <div class="loader-dot"></div>
           Reading
-
         </div>
 
-
         <div
+          id="step-analysing"
           class="loader-step"
-          data-step="analysing"
         >
-
-          <div class="loader-step-dot"></div>
-
+          <div class="loader-dot"></div>
           Analysing
-
         </div>
 
-
         <div
+          id="step-arranging"
           class="loader-step"
-          data-step="arranging"
         >
-
-          <div class="loader-step-dot"></div>
-
+          <div class="loader-dot"></div>
           Arranging
-
         </div>
 
-
         <div
+          id="step-storing"
           class="loader-step"
-          data-step="storing"
         >
-
-          <div class="loader-step-dot"></div>
-
+          <div class="loader-dot"></div>
           Storing
-
         </div>
-
 
         <div
+          id="step-success"
           class="loader-step"
-          data-step="success"
         >
-
-          <div class="loader-step-dot"></div>
-
+          <div class="loader-dot"></div>
           Success
-
         </div>
-
 
       </div>
 
-
       <button
-        id="btn-close-loader"
+        id="loader-close"
+        class="loader-close"
+        type="button"
       >
         Close
       </button>
-
 
     </div>
 
   </div>
 
 
-  <!-- =======================================================
-       APP JAVASCRIPT
-       ======================================================= -->
+  <!-- ======================================================
+       TOAST
+       ====================================================== -->
+
+  <div
+    id="toast-container"
+  ></div>
+
 
   <script src="app.js"></script>
 
