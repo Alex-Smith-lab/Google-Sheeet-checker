@@ -4666,6 +4666,13 @@ if (
 
 /* ============================================================
    GLOBAL METRICS
+   UPDATED:
+   - Total Database Volume
+   - Active Folder
+   - Active Sub Route
+   - Strikethrough Rows
+   - Keeps existing metric IDs working
+   - Works with Assignee-filtered rows
    ============================================================ */
 
 function calculateGlobalMetrics() {
@@ -4676,9 +4683,12 @@ function calculateGlobalMetrics() {
 
   let records = 0;
 
-  let strikethrough =
-    0;
+  let strikethrough = 0;
 
+
+  /* ==========================================================
+     CALCULATE DATABASE TOTALS
+     ========================================================== */
 
   Object.keys(
     projectDatabase
@@ -4718,8 +4728,17 @@ function calculateGlobalMetrics() {
 
           strikethrough +=
             rows.filter(
-              row =>
-                row.isStrikethrough === true
+              rowObject => {
+
+                return (
+                  !Array.isArray(
+                    rowObject
+                  ) &&
+                  rowObject &&
+                  rowObject.isStrikethrough === true
+                );
+
+              }
             ).length;
 
         }
@@ -4728,6 +4747,208 @@ function calculateGlobalMetrics() {
     }
   );
 
+
+  /* ==========================================================
+     ACTIVE FOLDER TOTAL
+     ========================================================== */
+
+  let activeFolderRecords = 0;
+
+
+  if (
+    activeMainSheet &&
+    projectDatabase[
+      activeMainSheet
+    ]
+  ) {
+
+    const activeFolder =
+      projectDatabase[
+        activeMainSheet
+      ] || {};
+
+
+    Object.keys(
+      activeFolder
+    ).forEach(
+      subKey => {
+
+        const route =
+          activeFolder[
+            subKey
+          ] || {};
+
+
+        activeFolderRecords +=
+          (
+            route.rows || []
+          ).length;
+
+      }
+    );
+
+  }
+
+
+  /* ==========================================================
+     ACTIVE SUB ROUTE TOTAL
+     ========================================================== */
+
+  let activeSubRouteRecords = 0;
+
+  let activeSubRouteStrikes = 0;
+
+
+  if (
+    activeMainSheet &&
+    activeSubSheet &&
+    projectDatabase[
+      activeMainSheet
+    ] &&
+    projectDatabase[
+      activeMainSheet
+    ][
+      activeSubSheet
+    ]
+  ) {
+
+    const activeRoute =
+      projectDatabase[
+        activeMainSheet
+      ][
+        activeSubSheet
+      ] || {};
+
+
+    const activeRows =
+      activeRoute.rows || [];
+
+
+    activeSubRouteRecords =
+      activeRows.length;
+
+
+    activeSubRouteStrikes =
+      activeRows.filter(
+        rowObject => {
+
+          return (
+            !Array.isArray(
+              rowObject
+            ) &&
+            rowObject &&
+            rowObject.isStrikethrough === true
+          );
+
+        }
+      ).length;
+
+  }
+
+
+  /* ==========================================================
+     VISIBLE METRIC CARDS
+     These IDs match the HTML.
+     ========================================================== */
+
+  const grandTotal =
+    document.getElementById(
+      "stat-grand-total"
+    );
+
+
+  const mainTotal =
+    document.getElementById(
+      "stat-main-total"
+    );
+
+
+  const subTotal =
+    document.getElementById(
+      "stat-sub-total"
+    );
+
+
+  const strikeTotal =
+    document.getElementById(
+      "stat-strike-total"
+    );
+
+
+  /* ==========================================================
+     TOTAL DATABASE
+     ========================================================== */
+
+  if (
+    grandTotal
+  ) {
+
+    grandTotal.textContent =
+      `${records} Rows`;
+
+  }
+
+
+  /* ==========================================================
+     ACTIVE FOLDER
+     ========================================================== */
+
+  if (
+    mainTotal
+  ) {
+
+    mainTotal.textContent =
+      `${activeFolderRecords} Rows`;
+
+  }
+
+
+  /* ==========================================================
+     ACTIVE SUB ROUTE
+     ========================================================== */
+
+  if (
+    subTotal
+  ) {
+
+    subTotal.textContent =
+      `${activeSubRouteRecords} Rows`;
+
+  }
+
+
+  /* ==========================================================
+     STRIKETHROUGH
+     ========================================================== */
+
+  if (
+    strikeTotal
+  ) {
+
+    /*
+     * If an active route is open,
+     * display strikes for that route.
+     *
+     * Otherwise display strikes
+     * across the entire database.
+     */
+
+    const displayedStrikes =
+      activeMainSheet &&
+      activeSubSheet
+        ? activeSubRouteStrikes
+        : strikethrough;
+
+
+    strikeTotal.textContent =
+      `${displayedStrikes} Rows`;
+
+  }
+
+
+  /* ==========================================================
+     KEEP ORIGINAL / OTHER METRICS WORKING
+     ========================================================== */
 
   const folderMetric =
     document.getElementById(
@@ -4793,98 +5014,6 @@ function calculateGlobalMetrics() {
   }
 
 }
-
-
-/* ============================================================
-   CLEAR ALL DATA
-   ============================================================ */
-
-const clearAllButton =
-  document.getElementById(
-    "btn-clear-all-data"
-  );
-
-
-if (
-  clearAllButton
-) {
-
-  clearAllButton.addEventListener(
-    "click",
-    () => {
-
-      const confirmed =
-        confirm(
-          "Delete all stored workbook data from this browser?"
-        );
-
-
-      if (
-        !confirmed
-      ) {
-
-        return;
-
-      }
-
-
-      projectDatabase = {};
-
-
-      activeMainSheet =
-        "";
-
-      activeSubSheet =
-        "";
-
-
-      localStorage.removeItem(
-        "projectDatabase"
-      );
-
-
-      localStorage.removeItem(
-        "activeMainSheet"
-      );
-
-
-      localStorage.removeItem(
-        "activeSubSheet"
-      );
-
-
-      updateDropdownMenu();
-
-      rebuildWorkbookTree();
-
-      calculateGlobalMetrics();
-
-
-      document
-        .getElementById(
-          "grid-output-view"
-        )
-        .innerHTML = `
-
-          <div class="splash-container">
-
-            <div class="splash-text">
-
-              Paste sheet data stream or select a subfolder node
-              from the workbook index to mount sheet records.
-
-            </div>
-
-          </div>
-
-        `;
-
-    }
-  );
-
-}
-
-
 /* ============================================================
    INITIAL METRICS
    ============================================================ */
