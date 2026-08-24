@@ -196,15 +196,30 @@ function setActivityUrl(
     new URLSearchParams();
 
   if (state) {
-    params.set("activity", state);
+
+    params.set(
+      "activity",
+      state
+    );
+
   }
 
   if (folder) {
-    params.set("folder", folder);
+
+    params.set(
+      "folder",
+      folder
+    );
+
   }
 
   if (route) {
-    params.set("route", route);
+
+    params.set(
+      "route",
+      route
+    );
+
   }
 
   try {
@@ -772,6 +787,7 @@ document.addEventListener(
         projectDatabase[savedMain][savedSub]
       );
 
+
       setActivityUrl(
         "viewing",
         savedMain,
@@ -862,6 +878,10 @@ document
 
 /* ============================================================
    PARSE PASTED DATA
+   UPDATED:
+   - preserves selected assignee
+   - detects all assignees
+   - does not reset user's selection
    ============================================================ */
 
 function parsePastedStreamForAssignees() {
@@ -1073,6 +1093,20 @@ function parsePastedStreamForAssignees() {
 
 
   /*
+   * IMPORTANT:
+   *
+   * Save the user's current
+   * selection before rebuilding
+   * the detected assignee list.
+   */
+
+  const previousSelected =
+    new Set(
+      selectedAssignees
+    );
+
+
+  /*
    * Extract unique assignees.
    */
 
@@ -1144,14 +1178,48 @@ function parsePastedStreamForAssignees() {
 
 
   /*
-   * Default:
-   * all assignees selected.
+   * FIRST PARSE:
+   * select all assignees.
+   *
+   * RE-PARSE:
+   * preserve only the assignees
+   * previously selected by user.
    */
 
-  selectedAssignees =
-    new Set(
-      detectedAssignees
-    );
+  if (
+    previousSelected.size === 0
+  ) {
+
+    selectedAssignees =
+      new Set(
+        detectedAssignees
+      );
+
+  } else {
+
+    const preserved =
+      detectedAssignees.filter(
+        name =>
+          Array.from(
+            previousSelected
+          ).some(
+            selectedName =>
+              selectedName
+                .trim()
+                .toLowerCase() ===
+              name
+                .trim()
+                .toLowerCase()
+          )
+      );
+
+
+    selectedAssignees =
+      new Set(
+        preserved
+      );
+
+  }
 
 
   /*
@@ -1208,6 +1276,9 @@ function parsePastedStreamForAssignees() {
 
 /* ============================================================
    ASSIGNEE SELECTOR
+   UPDATED:
+   - shows selected / total
+   - selected assignee remains visibly selected
    ============================================================ */
 
 function renderAssigneeSelector() {
@@ -1247,7 +1318,7 @@ function renderAssigneeSelector() {
 
 
   count.textContent =
-    `${detectedAssignees.length} found`;
+    `${selectedAssignees.size} selected / ${detectedAssignees.length} found`;
 
 
   /*
@@ -1269,7 +1340,9 @@ function renderAssigneeSelector() {
       detectedAssignees.length;
 
 
-  if (allSelected) {
+  if (
+    allSelected
+  ) {
 
     allPill.classList.add(
       "all-selected"
@@ -1294,6 +1367,7 @@ function renderAssigneeSelector() {
         new Set(
           detectedAssignees
         );
+
 
       renderAssigneeSelector();
 
@@ -1534,7 +1608,6 @@ document
 
       rebuildWorkbookTree();
 
-
       calculateGlobalMetrics();
 
     }
@@ -1593,11 +1666,9 @@ function updateDropdownMenu() {
 
 
   select.innerHTML = `
-
     <option value="">
       -- Select Existing Folder --
     </option>
-
   `;
 
 
@@ -1694,6 +1765,7 @@ document
         "activeMainSheet"
       );
 
+
       localStorage.removeItem(
         "activeSubSheet"
       );
@@ -1732,8 +1804,10 @@ document
           <div class="splash-container">
 
             <div class="splash-text">
+
               Paste sheet data stream or select a subfolder node
               from the workbook index to mount sheet records.
+
             </div>
 
           </div>
@@ -1838,7 +1912,11 @@ document
 
       /*
        * Re-parse immediately before processing.
-       * This prevents stale Assignee indexes.
+       *
+       * IMPORTANT:
+       * The updated parser preserves the user's
+       * selected assignee instead of resetting
+       * the selection to everyone.
        */
 
       parsePastedStreamForAssignees();
@@ -1948,6 +2026,7 @@ document
 
           headerRowIndex = 0;
 
+
           headers =
             rows[0].map(
               cell =>
@@ -1995,9 +2074,7 @@ document
           headers.findIndex(
             isAssigneeHeader
           );
-
-
-        /*
+                 /*
          * If original header was duplicated
          * with internal suffix, try original
          * text as well.
@@ -2043,6 +2120,14 @@ document
           [];
 
 
+        /*
+         * IMPORTANT:
+         *
+         * Take the selected assignees
+         * exactly as they appear in the
+         * selector.
+         */
+
         const selected =
           Array.from(
             selectedAssignees
@@ -2050,8 +2135,8 @@ document
 
 
         /*
-         * If there are assignees detected
-         * but none are selected, stop.
+         * If Assignee exists but user
+         * deselected everyone, stop.
          */
 
         if (
@@ -2122,7 +2207,13 @@ document
 
 
           /*
-           * Assignee filter.
+           * ====================================================
+           * ASSIGNEE FILTER
+           * ====================================================
+           *
+           * Only rows belonging to the
+           * selected assignee(s) are
+           * extracted.
            */
 
           if (
@@ -2138,8 +2229,7 @@ document
 
 
             /*
-             * Ignore completely empty
-             * Assignee rows.
+             * Ignore rows with no Assignee.
              */
 
             if (
@@ -2152,8 +2242,12 @@ document
 
 
             /*
-             * If specific users were selected,
-             * only keep their rows.
+             * If specific users were
+             * selected, only keep their
+             * rows.
+             *
+             * Comparison is case-insensitive
+             * and ignores surrounding spaces.
              */
 
             if (
@@ -2172,7 +2266,9 @@ document
                 );
 
 
-              if (!matches) {
+              if (
+                !matches
+              ) {
 
                 continue;
 
@@ -2206,6 +2302,11 @@ document
 
         }
 
+
+        /*
+         * Nothing matched the selected
+         * Assignee.
+         */
 
         if (
           !extractedRows.length
@@ -2278,8 +2379,6 @@ document
            * Existing route.
            *
            * Merge headers dynamically.
-           * This allows future pasted sheets
-           * to have changed columns/order.
            */
 
           const existing =
@@ -2299,7 +2398,8 @@ document
 
           projectDatabase[
             mainName
-          ][subName] = merged;
+          ][subName] =
+            merged;
 
         }
 
@@ -2375,6 +2475,7 @@ document
           mainName
         );
 
+
         localStorage.setItem(
           "activeSubSheet",
           subName
@@ -2435,23 +2536,17 @@ document
 
         clipboardHtmlBuffer = "";
 
-
         parsedRowsStream = [];
 
-
         detectedAssignees = [];
-
 
         selectedAssignees =
           new Set();
 
-
         detectedHeaders = [];
-
 
         detectedAssigneeColIdx =
           -1;
-
 
         detectedHeaderRowIdx =
           -1;
@@ -2485,7 +2580,9 @@ document
         );
 
 
-      } catch (error) {
+      } catch (
+        error
+      ) {
 
         console.error(
           "Processing error:",
@@ -2509,9 +2606,11 @@ document
           }`
         );
 
+
       } finally {
 
-        button.disabled = false;
+        button.disabled =
+          false;
 
       }
 
@@ -2556,7 +2655,9 @@ function makeUniqueHeaders(
         );
 
 
-        return `Column ${emptyCount + 1}`;
+        return `Column ${
+          emptyCount + 1
+        }`;
 
       }
 
@@ -2676,8 +2777,6 @@ function detectHtmlStrikethrough(
     /*
      * Google Sheets HTML normally
      * follows the same row order.
-     *
-     * Try direct index first.
      */
 
     let tr =
@@ -2720,7 +2819,9 @@ function detectHtmlStrikethrough(
     }
 
 
-    if (!tr) {
+    if (
+      !tr
+    ) {
 
       return false;
 
@@ -2758,12 +2859,16 @@ function detectHtmlStrikethrough(
       )
     );
 
-  } catch (error) {
+
+  } catch (
+    error
+  ) {
 
     console.warn(
       "Strikethrough detection failed:",
       error
     );
+
 
     return false;
 
@@ -2810,7 +2915,10 @@ function mergeSheetData(
    */
 
   oldHeaders.forEach(
-    (header, index) => {
+    (
+      header,
+      index
+    ) => {
 
       const key =
         oldKeys[index];
@@ -2825,6 +2933,7 @@ function mergeSheetData(
         mergedKeys.push(
           key
         );
+
 
         mergedHeaders.push(
           header
@@ -2841,7 +2950,10 @@ function mergeSheetData(
    */
 
   newHeaders.forEach(
-    (header, index) => {
+    (
+      header,
+      index
+    ) => {
 
       const key =
         newKeys[index];
@@ -2856,6 +2968,7 @@ function mergeSheetData(
         mergedKeys.push(
           key
         );
+
 
         mergedHeaders.push(
           header
@@ -2892,7 +3005,10 @@ function mergeSheetData(
 
 
       oldKeys.forEach(
-        (key, index) => {
+        (
+          key,
+          index
+        ) => {
 
           const target =
             mergedKeys.indexOf(
@@ -2953,7 +3069,10 @@ function mergeSheetData(
 
 
       newKeys.forEach(
-        (key, index) => {
+        (
+          key,
+          index
+        ) => {
 
           const target =
             mergedKeys.indexOf(
@@ -3063,7 +3182,9 @@ function flashAssigneeHeader() {
         );
 
 
-      if (!header) {
+      if (
+        !header
+      ) {
 
         return;
 
@@ -3095,12 +3216,10 @@ function flashAssigneeHeader() {
           );
 
         },
-
         1500
       );
 
     },
-
     50
   );
 
@@ -3109,6 +3228,10 @@ function flashAssigneeHeader() {
 
 /* ============================================================
    BUILD WORKBOOK TREE
+   UPDATED:
+   - card displays Assignee
+   - card displays Assignee row count
+   - multiple assignees are displayed separately
    ============================================================ */
 
 function rebuildWorkbookTree() {
@@ -3150,9 +3273,106 @@ function rebuildWorkbookTree() {
   }
 
 
+  /*
+   * Get Assignee counts for one
+   * stored route.
+   */
+
+  function getAssigneeStats(
+    route
+  ) {
+
+    const headers =
+      route.headers || [];
+
+
+    const rows =
+      route.rows || [];
+
+
+    const assigneeIndex =
+      headers.findIndex(
+        header =>
+          isAssigneeHeader(
+            displayHeaderName(
+              header
+            )
+          )
+      );
+
+
+    if (
+      assigneeIndex === -1
+    ) {
+
+      return [];
+
+    }
+
+
+    const stats =
+      new Map();
+
+
+    rows.forEach(
+      rowObject => {
+
+        const cells =
+          Array.isArray(
+            rowObject
+          )
+            ? rowObject
+            : (
+                rowObject.data ||
+                []
+              );
+
+
+        const assignee =
+          String(
+            cells[
+              assigneeIndex
+            ] || ""
+          ).trim();
+
+
+        if (
+          !assignee
+        ) {
+
+          return;
+
+        }
+
+
+        const current =
+          stats.get(
+            assignee
+          ) || 0;
+
+
+        stats.set(
+          assignee,
+          current + 1
+        );
+
+      }
+    );
+
+
+    return Array.from(
+      stats.entries()
+    );
+
+  }
+
+
   workbooks
     .sort(
-      (a, b) =>
+      (
+        a,
+        b
+      ) =>
         a.localeCompare(
           b
         )
@@ -3269,6 +3489,73 @@ function rebuildWorkbookTree() {
               ).length;
 
 
+            /*
+             * NEW:
+             * Get individual Assignee
+             * counts for this card.
+             */
+
+            const assigneeStats =
+              getAssigneeStats(
+                route
+              );
+
+
+            /*
+             * NEW:
+             * Build Assignee display.
+             *
+             * Example:
+             *
+             * John · 18
+             * Mary · 24
+             * Peter · 7
+             */
+
+            let assigneeDisplay =
+              "";
+
+
+            if (
+              assigneeStats.length
+            ) {
+
+              assigneeDisplay =
+                assigneeStats
+                  .map(
+                    (
+                      [
+                        name,
+                        count
+                      ]
+                    ) => `
+
+                      <span
+                        class="count-badge"
+                        title="${escapeHtml(name)}"
+                      >
+                        ${escapeHtml(name)} · ${count}
+                      </span>
+
+                    `
+                  )
+                  .join("");
+
+            } else {
+
+              assigneeDisplay = `
+
+                <span
+                  class="count-badge"
+                >
+                  No Assignee
+                </span>
+
+              `;
+
+            }
+
+
             const item =
               document.createElement(
                 "div"
@@ -3290,11 +3577,25 @@ function rebuildWorkbookTree() {
                 📄 ${escapeHtml(subKey)}
               </span>
 
-              <div class="tree-item-meta">
+
+              <div
+                class="tree-item-meta"
+                style="
+                  display:flex;
+                  align-items:center;
+                  gap:5px;
+                  flex-wrap:wrap;
+                  justify-content:flex-end;
+                "
+              >
+
+                ${assigneeDisplay}
+
 
                 ${
                   strikeCount > 0
                     ? `
+
                       <span
                         class="count-badge"
                         style="
@@ -3304,13 +3605,19 @@ function rebuildWorkbookTree() {
                       >
                         ☠ ${strikeCount}
                       </span>
+
                     `
                     : ""
                 }
 
-                <span class="count-badge">
+
+                <span
+                  class="count-badge"
+                  title="Total rows"
+                >
                   ${rowVolume}
                 </span>
+
 
                 <button
                   class="btn-delete-node"
@@ -3446,6 +3753,100 @@ function rebuildWorkbookTree() {
     );
 
 }
+/* ============================================================
+   CREATE HEADER KEYS
+   ============================================================ */
+
+function createHeaderKeys(
+  headers
+) {
+
+  const counts =
+    new Map();
+
+
+  return headers.map(
+    header => {
+
+      const normalized =
+        normalizeHeader(
+          displayHeaderName(
+            header
+          )
+        );
+
+
+      const current =
+        counts.get(
+          normalized
+        ) || 0;
+
+
+      counts.set(
+        normalized,
+        current + 1
+      );
+
+
+      return `${normalized}::${current}`;
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   FLASH ASSIGNEE HEADER TWICE
+   ============================================================ */
+
+function flashAssigneeHeader() {
+
+  setTimeout(
+    () => {
+
+      const header =
+        document.querySelector(
+          "th[data-assignee-header='true']"
+        );
+
+
+      if (!header) {
+
+        return;
+
+      }
+
+
+      header.classList.remove(
+        "header-success-flash"
+      );
+
+
+      void header.offsetWidth;
+
+
+      header.classList.add(
+        "header-success-flash"
+      );
+
+
+      setTimeout(
+        () => {
+
+          header.classList.remove(
+            "header-success-flash"
+          );
+
+        },
+        1500
+      );
+
+    },
+    50
+  );
+
+}
 
 
 /* ============================================================
@@ -3487,6 +3888,7 @@ async function switchViewContext(
     "activeMainSheet",
     mainKey
   );
+
 
   localStorage.setItem(
     "activeSubSheet",
@@ -3574,17 +3976,21 @@ function renderSpreadsheetViewGrid(
     );
 
 
-  if (
-    !sheetObject
-  ) {
+  if (!sheetObject) {
 
     display.innerHTML = `
 
-      <div style="padding:12px;color:var(--text-dark);">
+      <div
+        style="
+          padding:12px;
+          color:var(--text-dark);
+        "
+      >
         No workspace data found.
       </div>
 
     `;
+
 
     rangeIndicator.textContent = "";
 
@@ -3607,11 +4013,17 @@ function renderSpreadsheetViewGrid(
 
     display.innerHTML = `
 
-      <div style="padding:12px;color:var(--text-dark);">
+      <div
+        style="
+          padding:12px;
+          color:var(--text-dark);
+        "
+      >
         No row data present in this route.
       </div>
 
     `;
+
 
     rangeIndicator.textContent = "";
 
@@ -3675,7 +4087,8 @@ function renderSpreadsheetViewGrid(
         )
           ? rowObject
           : (
-              rowObject.data || []
+              rowObject.data ||
+              []
             );
 
 
@@ -4015,6 +4428,12 @@ document
         );
 
 
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+
       const link =
         document.createElement(
           "a"
@@ -4022,18 +4441,11 @@ document
 
 
       link.href =
-        URL.createObjectURL(
-          blob
-        );
+        url;
 
 
       link.download =
-        `${activeMainSheet}_${activeSubSheet}.csv`
-          .replace(
-            /[^a-z0-9_.-]/gi,
-            "_"
-          )
-          .toLowerCase();
+        `${activeSubSheet}.csv`;
 
 
       document.body.appendChild(
@@ -4044,21 +4456,212 @@ document
       link.click();
 
 
-      document.body.removeChild(
-        link
-      );
+      link.remove();
 
 
-      setTimeout(
-        () =>
-          URL.revokeObjectURL(
-            link.href
-          ),
-        1000
+      URL.revokeObjectURL(
+        url
       );
 
     }
   );
+
+
+/* ============================================================
+   EXPORT JSON
+   ============================================================ */
+
+document
+  .getElementById(
+    "btn-export-json"
+  )
+  ?.addEventListener(
+    "click",
+    () => {
+
+      if (
+        !activeMainSheet ||
+        !activeSubSheet ||
+        !projectDatabase[
+          activeMainSheet
+        ] ||
+        !projectDatabase[
+          activeMainSheet
+        ][activeSubSheet]
+      ) {
+
+        return;
+
+      }
+
+
+      const workbook =
+        projectDatabase[
+          activeMainSheet
+        ][activeSubSheet];
+
+
+      const json =
+        JSON.stringify(
+          workbook,
+          null,
+          2
+        );
+
+
+      const blob =
+        new Blob(
+          [json],
+          {
+            type:
+              "application/json"
+          }
+        );
+
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+
+      const link =
+        document.createElement(
+          "a"
+        );
+
+
+      link.href =
+        url;
+
+
+      link.download =
+        `${activeSubSheet}.json`;
+
+
+      document.body.appendChild(
+        link
+      );
+
+
+      link.click();
+
+
+      link.remove();
+
+
+      URL.revokeObjectURL(
+        url
+      );
+
+    }
+  );
+
+
+/* ============================================================
+   SEARCH / FILTER CURRENT VIEW
+   ============================================================ */
+
+const searchInput =
+  document.getElementById(
+    "grid-search-input"
+  );
+
+
+if (
+  searchInput
+) {
+
+  searchInput.addEventListener(
+    "input",
+    event => {
+
+      const query =
+        String(
+          event.target.value ||
+          ""
+        )
+          .trim()
+          .toLowerCase();
+
+
+      document
+        .querySelectorAll(
+          "#grid-output-view tbody tr"
+        )
+        .forEach(
+          row => {
+
+            if (
+              !query
+            ) {
+
+              row.style.display =
+                "";
+
+              return;
+
+            }
+
+
+            const text =
+              row.textContent
+                .toLowerCase();
+
+
+            row.style.display =
+              text.includes(
+                query
+              )
+                ? ""
+                : "none";
+
+          }
+        );
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   CLEAR SEARCH
+   ============================================================ */
+
+const clearSearch =
+  document.getElementById(
+    "btn-clear-search"
+  );
+
+
+if (
+  clearSearch
+) {
+
+  clearSearch.addEventListener(
+    "click",
+    () => {
+
+      if (
+        searchInput
+      ) {
+
+        searchInput.value =
+          "";
+
+        searchInput.dispatchEvent(
+          new Event(
+            "input"
+          )
+        );
+
+      }
+
+    }
+  );
+
+}
 
 
 /* ============================================================
@@ -4067,13 +4670,14 @@ document
 
 function calculateGlobalMetrics() {
 
-  let grandTotal = 0;
+  let folders = 0;
 
-  let mainTotal = 0;
+  let routes = 0;
 
-  let subTotal = 0;
+  let records = 0;
 
-  let strikeTotal = 0;
+  let strikethrough =
+    0;
 
 
   Object.keys(
@@ -4081,61 +4685,42 @@ function calculateGlobalMetrics() {
   ).forEach(
     mainKey => {
 
-      Object.keys(
+      folders++;
+
+
+      const folder =
         projectDatabase[
           mainKey
-        ] || {}
+        ] || {};
+
+
+      Object.keys(
+        folder
       ).forEach(
         subKey => {
 
+          routes++;
+
+
+          const route =
+            folder[
+              subKey
+            ] || {};
+
+
           const rows =
-            projectDatabase[
-              mainKey
-            ][subKey].rows || [];
+            route.rows || [];
 
 
-          grandTotal +=
+          records +=
             rows.length;
 
 
-          if (
-            mainKey ===
-            activeMainSheet
-          ) {
-
-            mainTotal +=
-              rows.length;
-
-          }
-
-
-          if (
-            mainKey ===
-              activeMainSheet &&
-            subKey ===
-              activeSubSheet
-          ) {
-
-            subTotal =
-              rows.length;
-
-          }
-
-
-          rows.forEach(
-            row => {
-
-              if (
-                row &&
-                row.isStrikethrough
-              ) {
-
-                strikeTotal++;
-
-              }
-
-            }
-          );
+          strikethrough +=
+            rows.filter(
+              row =>
+                row.isStrikethrough === true
+            ).length;
 
         }
       );
@@ -4144,64 +4729,167 @@ function calculateGlobalMetrics() {
   );
 
 
-  const grandElement =
+  const folderMetric =
     document.getElementById(
-      "stat-grand-total"
+      "metric-folder-count"
     );
 
 
-  const mainElement =
+  const routeMetric =
     document.getElementById(
-      "stat-main-total"
+      "metric-route-count"
     );
 
 
-  const subElement =
+  const recordMetric =
     document.getElementById(
-      "stat-sub-total"
+      "metric-record-count"
     );
 
 
-  const strikeElement =
+  const strikeMetric =
     document.getElementById(
-      "stat-strike-total"
+      "metric-strike-count"
     );
 
 
-  if (grandElement) {
+  if (
+    folderMetric
+  ) {
 
-    grandElement.textContent =
-      `${grandTotal} Rows`;
+    folderMetric.textContent =
+      folders;
 
   }
 
 
-  if (mainElement) {
+  if (
+    routeMetric
+  ) {
 
-    mainElement.textContent =
-      `${mainTotal} Rows`;
-
-  }
-
-
-  if (subElement) {
-
-    subElement.textContent =
-      `${subTotal} Rows`;
+    routeMetric.textContent =
+      routes;
 
   }
 
 
-  if (strikeElement) {
+  if (
+    recordMetric
+  ) {
 
-    strikeElement.textContent =
-      `${strikeTotal} Rows`;
+    recordMetric.textContent =
+      records;
+
+  }
+
+
+  if (
+    strikeMetric
+  ) {
+
+    strikeMetric.textContent =
+      strikethrough;
 
   }
 
 }
 
 
+/* ============================================================
+   CLEAR ALL DATA
+   ============================================================ */
+
+const clearAllButton =
+  document.getElementById(
+    "btn-clear-all-data"
+  );
+
+
+if (
+  clearAllButton
+) {
+
+  clearAllButton.addEventListener(
+    "click",
+    () => {
+
+      const confirmed =
+        confirm(
+          "Delete all stored workbook data from this browser?"
+        );
+
+
+      if (
+        !confirmed
+      ) {
+
+        return;
+
+      }
+
+
+      projectDatabase = {};
+
+
+      activeMainSheet =
+        "";
+
+      activeSubSheet =
+        "";
+
+
+      localStorage.removeItem(
+        "projectDatabase"
+      );
+
+
+      localStorage.removeItem(
+        "activeMainSheet"
+      );
+
+
+      localStorage.removeItem(
+        "activeSubSheet"
+      );
+
+
+      updateDropdownMenu();
+
+      rebuildWorkbookTree();
+
+      calculateGlobalMetrics();
+
+
+      document
+        .getElementById(
+          "grid-output-view"
+        )
+        .innerHTML = `
+
+          <div class="splash-container">
+
+            <div class="splash-text">
+
+              Paste sheet data stream or select a subfolder node
+              from the workbook index to mount sheet records.
+
+            </div>
+
+          </div>
+
+        `;
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   INITIAL METRICS
+   ============================================================ */
+
+calculateGlobalMetrics();
 /* ============================================================
    WIPE STORAGE
    ============================================================ */
@@ -4288,8 +4976,10 @@ document
           <div class="splash-container">
 
             <div class="splash-text">
+
               Paste sheet data stream or select a subfolder node
               from the workbook index to mount sheet records.
+
             </div>
 
           </div>
@@ -4327,12 +5017,23 @@ document
       selectedAssignees =
         new Set();
 
+      parsedRowsStream = [];
+
+      detectedHeaders = [];
+
+      detectedAssigneeColIdx =
+        -1;
+
+      detectedHeaderRowIdx =
+        -1;
+
 
       updateDropdownMenu();
 
       rebuildWorkbookTree();
 
       calculateGlobalMetrics();
+
 
       setActivityUrl(
         "",
@@ -4342,3 +5043,8 @@ document
 
     }
   );
+
+
+/* ============================================================
+   END OF APP.JS
+   ============================================================ */
