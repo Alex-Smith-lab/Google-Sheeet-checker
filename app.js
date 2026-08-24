@@ -3168,28 +3168,34 @@ function createHeaderKeys(
 
 
 /* ============================================================
-   FLASH ASSIGNEE HEADER TWICE
+   FLASH ALL HEADERS TWICE
+   Column 1 → Last Column
    ============================================================ */
 
 function flashAssigneeHeader() {
 
-  setTimeout(
-    () => {
-
-      const header =
-        document.querySelector(
-          "th[data-assignee-header='true']"
-        );
+  const headers =
+    document.querySelectorAll(
+      "#grid-output-view thead th"
+    );
 
 
-      if (
-        !header
-      ) {
+  if (
+    !headers.length
+  ) {
 
-        return;
+    return;
 
-      }
+  }
 
+
+  /*
+   * Flash ALL headers together.
+   * The CSS animation will run twice.
+   */
+
+  headers.forEach(
+    header => {
 
       header.classList.remove(
         "header-success-flash"
@@ -3207,24 +3213,64 @@ function flashAssigneeHeader() {
         "header-success-flash"
       );
 
+    }
+  );
 
-      setTimeout(
-        () => {
+
+  /*
+   * First flash ends.
+   * Restart for the second flash.
+   */
+
+  setTimeout(
+    () => {
+
+      headers.forEach(
+        header => {
 
           header.classList.remove(
             "header-success-flash"
           );
 
-        },
-        1500
+
+          void header.offsetWidth;
+
+
+          header.classList.add(
+            "header-success-flash"
+          );
+
+        }
       );
 
     },
-    50
+    800
+  );
+
+
+  /*
+   * Clean up after second flash.
+   */
+
+  setTimeout(
+    () => {
+
+      headers.forEach(
+        header => {
+
+          header.classList.remove(
+            "header-success-flash"
+          );
+
+        }
+
+      );
+
+    },
+    1600
   );
 
 }
-
 
 /* ============================================================
    BUILD WORKBOOK TREE
