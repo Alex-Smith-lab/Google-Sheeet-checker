@@ -10,6 +10,8 @@ let activeSubSheet = "";
 
 let clipboardHtmlBuffer = "";
 
+let strikethroughRowCache = null;
+
 let detectedAssignees = [];
 
 let selectedAssignees = new Set();
@@ -196,30 +198,15 @@ function setActivityUrl(
     new URLSearchParams();
 
   if (state) {
-
-    params.set(
-      "activity",
-      state
-    );
-
+    params.set("activity", state);
   }
 
   if (folder) {
-
-    params.set(
-      "folder",
-      folder
-    );
-
+    params.set("folder", folder);
   }
 
   if (route) {
-
-    params.set(
-      "route",
-      route
-    );
-
+    params.set("route", route);
   }
 
   try {
@@ -787,7 +774,6 @@ document.addEventListener(
         projectDatabase[savedMain][savedSub]
       );
 
-
       setActivityUrl(
         "viewing",
         savedMain,
@@ -820,6 +806,7 @@ window.addEventListener(
 
 /* ============================================================
    PASTE EVENT
+   FAST LARGE-DATA VERSION
    ============================================================ */
 
 document
@@ -832,6 +819,8 @@ document
 
       clipboardHtmlBuffer = "";
 
+      strikethroughRowCache = null;
+
 
       if (
         event.clipboardData
@@ -843,7 +832,9 @@ document
           );
 
 
-        if (htmlData) {
+        if (
+          htmlData
+        ) {
 
           clipboardHtmlBuffer =
             htmlData;
@@ -855,11 +846,14 @@ document
 
       setTimeout(
         parsePastedStreamForAssignees,
-        100
+        50
       );
 
     }
   );
+
+
+let assigneeParseTimer = null;
 
 
 document
@@ -870,7 +864,20 @@ document
     "input",
     () => {
 
-      parsePastedStreamForAssignees();
+      clearTimeout(
+        assigneeParseTimer
+      );
+
+
+      assigneeParseTimer =
+        setTimeout(
+          () => {
+
+            parsePastedStreamForAssignees();
+
+          },
+          150
+        );
 
     }
   );
@@ -878,10 +885,6 @@ document
 
 /* ============================================================
    PARSE PASTED DATA
-   UPDATED:
-   - preserves selected assignee
-   - detects all assignees
-   - does not reset user's selection
    ============================================================ */
 
 function parsePastedStreamForAssignees() {
@@ -927,7 +930,7 @@ function parsePastedStreamForAssignees() {
       .split(/\r?\n/)
       .filter(
         line =>
-          line.trim().length > 0
+          line.length > 0
       );
 
 
@@ -1093,20 +1096,6 @@ function parsePastedStreamForAssignees() {
 
 
   /*
-   * IMPORTANT:
-   *
-   * Save the user's current
-   * selection before rebuilding
-   * the detected assignee list.
-   */
-
-  const previousSelected =
-    new Set(
-      selectedAssignees
-    );
-
-
-  /*
    * Extract unique assignees.
    */
 
@@ -1178,45 +1167,44 @@ function parsePastedStreamForAssignees() {
 
 
   /*
-   * FIRST PARSE:
-   * select all assignees.
+   * Preserve the user's current Assignee selection
+   * when the parser runs again before processing.
    *
-   * RE-PARSE:
-   * preserve only the assignees
-   * previously selected by user.
+   * If there is no existing selection, select all
+   * Assignees by default.
    */
 
+  const previousSelection =
+    new Set(
+      selectedAssignees
+    );
+
+
   if (
-    previousSelected.size === 0
+    previousSelection.size > 0
   ) {
 
-    selectedAssignees =
-      new Set(
-        detectedAssignees
-      );
-
-  } else {
-
-    const preserved =
+    const preservedSelection =
       detectedAssignees.filter(
         name =>
-          Array.from(
-            previousSelected
-          ).some(
-            selectedName =>
-              selectedName
-                .trim()
-                .toLowerCase() ===
-              name
-                .trim()
-                .toLowerCase()
+          previousSelection.has(
+            name
           )
       );
 
 
     selectedAssignees =
       new Set(
-        preserved
+        preservedSelection.length
+          ? preservedSelection
+          : detectedAssignees
+      );
+
+  } else {
+
+    selectedAssignees =
+      new Set(
+        detectedAssignees
       );
 
   }
@@ -1276,9 +1264,6 @@ function parsePastedStreamForAssignees() {
 
 /* ============================================================
    ASSIGNEE SELECTOR
-   UPDATED:
-   - shows selected / total
-   - selected assignee remains visibly selected
    ============================================================ */
 
 function renderAssigneeSelector() {
@@ -1318,7 +1303,7 @@ function renderAssigneeSelector() {
 
 
   count.textContent =
-    `${selectedAssignees.size} selected / ${detectedAssignees.length} found`;
+    `${detectedAssignees.length} found`;
 
 
   /*
@@ -1340,9 +1325,7 @@ function renderAssigneeSelector() {
       detectedAssignees.length;
 
 
-  if (
-    allSelected
-  ) {
+  if (allSelected) {
 
     allPill.classList.add(
       "all-selected"
@@ -1368,7 +1351,6 @@ function renderAssigneeSelector() {
           detectedAssignees
         );
 
-
       renderAssigneeSelector();
 
     }
@@ -1393,7 +1375,7 @@ function renderAssigneeSelector() {
         );
 
 
-      pill.className =
+  pill.className =
         "assignee-pill";
 
 
@@ -1608,6 +1590,7 @@ document
 
       rebuildWorkbookTree();
 
+
       calculateGlobalMetrics();
 
     }
@@ -1666,9 +1649,11 @@ function updateDropdownMenu() {
 
 
   select.innerHTML = `
+
     <option value="">
       -- Select Existing Folder --
     </option>
+
   `;
 
 
@@ -1765,7 +1750,6 @@ document
         "activeMainSheet"
       );
 
-
       localStorage.removeItem(
         "activeSubSheet"
       );
@@ -1804,10 +1788,8 @@ document
           <div class="splash-container">
 
             <div class="splash-text">
-
               Paste sheet data stream or select a subfolder node
               from the workbook index to mount sheet records.
-
             </div>
 
           </div>
@@ -1912,11 +1894,7 @@ document
 
       /*
        * Re-parse immediately before processing.
-       *
-       * IMPORTANT:
-       * The updated parser preserves the user's
-       * selected assignee instead of resetting
-       * the selection to everyone.
+       * This prevents stale Assignee indexes.
        */
 
       parsePastedStreamForAssignees();
@@ -1963,20 +1941,23 @@ document
         );
 
 
-        await wait(250);
+        /*
+         * The data was already parsed by
+         * parsePastedStreamForAssignees()
+         * immediately before processing.
+         *
+         * Reuse that parsed array instead of
+         * splitting and trimming the entire
+         * dataset a second time.
+         */
 
-
-        const lines =
-          rawDataText
-            .split(/\r?\n/)
-            .filter(
-              line =>
-                line.trim().length > 0
-            );
+        const rows =
+          parsedRowsStream;
 
 
         if (
-          !lines.length
+          !rows ||
+          !rows.length
         ) {
 
           throw new Error(
@@ -1984,22 +1965,6 @@ document
           );
 
         }
-
-
-        /*
-         * Parse actual pasted rows.
-         */
-
-        const rows =
-          lines.map(
-            line =>
-              line
-                .split("\t")
-                .map(
-                  cell =>
-                    cell.trim()
-                )
-          );
 
 
         /*
@@ -2025,7 +1990,6 @@ document
         ) {
 
           headerRowIndex = 0;
-
 
           headers =
             rows[0].map(
@@ -2074,7 +2038,9 @@ document
           headers.findIndex(
             isAssigneeHeader
           );
-                 /*
+
+
+        /*
          * If original header was duplicated
          * with internal suffix, try original
          * text as well.
@@ -2113,20 +2079,12 @@ document
         );
 
 
-        await wait(250);
+        buildStrikethroughRowCache();
 
 
         const extractedRows =
           [];
 
-
-        /*
-         * IMPORTANT:
-         *
-         * Take the selected assignees
-         * exactly as they appear in the
-         * selector.
-         */
 
         const selected =
           Array.from(
@@ -2135,8 +2093,8 @@ document
 
 
         /*
-         * If Assignee exists but user
-         * deselected everyone, stop.
+         * If there are assignees detected
+         * but none are selected, stop.
          */
 
         if (
@@ -2153,8 +2111,35 @@ document
 
 
         /*
-         * Process every data row.
+         * FAST ROW EXTRACTION.
+         *
+         * Assignee filtering happens before an
+         * aligned row is allocated.
+         *
+         * A Set is used for constant-time lookup.
          */
+
+        const selectedLookup =
+          new Set(
+            selected.map(
+              name =>
+                String(
+                  name
+                )
+                  .trim()
+                  .toLowerCase()
+            )
+          );
+
+
+        const hasAssigneeFilter =
+          assigneeIndex !== -1 &&
+          selectedLookup.size > 0;
+
+
+        const headerLength =
+          headers.length;
+
 
         for (
           let rowIndex =
@@ -2171,7 +2156,8 @@ document
 
 
           if (
-            !cells.length
+            !cells ||
+            cells.length === 0
           ) {
 
             continue;
@@ -2180,40 +2166,9 @@ document
 
 
           /*
-           * Make row exactly same width
-           * as the actual pasted header.
-           */
-
-          const aligned =
-            new Array(
-              headers.length
-            ).fill("");
-
-
-          for (
-            let i = 0;
-
-            i < headers.length;
-
-            i++
-          ) {
-
-            aligned[i] =
-              cells[i] !== undefined
-                ? cells[i]
-                : "";
-
-          }
-
-
-          /*
-           * ====================================================
-           * ASSIGNEE FILTER
-           * ====================================================
-           *
-           * Only rows belonging to the
-           * selected assignee(s) are
-           * extracted.
+           * Filter by Assignee FIRST.
+           * This avoids creating an entire row
+           * for data that will be discarded.
            */
 
           if (
@@ -2221,16 +2176,10 @@ document
           ) {
 
             const rowAssignee =
-              String(
-                aligned[
-                  assigneeIndex
-                ] || ""
-              ).trim();
+              cells[
+                assigneeIndex
+              ];
 
-
-            /*
-             * Ignore rows with no Assignee.
-             */
 
             if (
               !rowAssignee
@@ -2241,52 +2190,56 @@ document
             }
 
 
-            /*
-             * If specific users were
-             * selected, only keep their
-             * rows.
-             *
-             * Comparison is case-insensitive
-             * and ignores surrounding spaces.
-             */
-
             if (
-              selected.length > 0
+              hasAssigneeFilter &&
+              !selectedLookup.has(
+                String(
+                  rowAssignee
+                )
+                  .trim()
+                  .toLowerCase()
+              )
             ) {
 
-              const matches =
-                selected.some(
-                  selectedName =>
-                    selectedName
-                      .trim()
-                      .toLowerCase() ===
-                    rowAssignee
-                      .trim()
-                      .toLowerCase()
-                );
-
-
-              if (
-                !matches
-              ) {
-
-                continue;
-
-              }
+              continue;
 
             }
 
           }
 
 
-          /*
-           * Google Sheets strikethrough.
-           */
+          const aligned =
+            new Array(
+              headerLength
+            );
+
+
+          for (
+            let columnIndex = 0;
+
+            columnIndex <
+            headerLength;
+
+            columnIndex++
+          ) {
+
+            aligned[
+              columnIndex
+            ] =
+              cells[
+                columnIndex
+              ] !== undefined
+                ? cells[
+                    columnIndex
+                  ]
+                : "";
+
+          }
+
 
           const strike =
             detectHtmlStrikethrough(
-              rowIndex,
-              cells
+              rowIndex
             );
 
 
@@ -2300,13 +2253,28 @@ document
 
           });
 
+
+          /*
+           * Yield occasionally during very large
+           * imports so the browser remains responsive.
+           */
+
+          if (
+            rowIndex % 5000 === 0
+          ) {
+
+            await new Promise(
+              resolve =>
+                setTimeout(
+                  resolve,
+                  0
+                )
+            );
+
+          }
+
         }
 
-
-        /*
-         * Nothing matched the selected
-         * Assignee.
-         */
 
         if (
           !extractedRows.length
@@ -2335,7 +2303,6 @@ document
         );
 
 
-        await wait(260);
 
 
         if (
@@ -2379,6 +2346,8 @@ document
            * Existing route.
            *
            * Merge headers dynamically.
+           * This allows future pasted sheets
+           * to have changed columns/order.
            */
 
           const existing =
@@ -2398,8 +2367,7 @@ document
 
           projectDatabase[
             mainName
-          ][subName] =
-            merged;
+          ][subName] = merged;
 
         }
 
@@ -2420,7 +2388,6 @@ document
         );
 
 
-        await wait(260);
 
 
         localStorage.setItem(
@@ -2429,7 +2396,6 @@ document
             projectDatabase
           )
         );
-
 
         /* ======================================================
            SUCCESS
@@ -2447,7 +2413,6 @@ document
         );
 
 
-        await wait(650);
 
 
         /*
@@ -2474,7 +2439,6 @@ document
           "activeMainSheet",
           mainName
         );
-
 
         localStorage.setItem(
           "activeSubSheet",
@@ -2536,17 +2500,25 @@ document
 
         clipboardHtmlBuffer = "";
 
+        strikethroughRowCache = null;
+
+
         parsedRowsStream = [];
 
+
         detectedAssignees = [];
+
 
         selectedAssignees =
           new Set();
 
+
         detectedHeaders = [];
+
 
         detectedAssigneeColIdx =
           -1;
+
 
         detectedHeaderRowIdx =
           -1;
@@ -2580,9 +2552,7 @@ document
         );
 
 
-      } catch (
-        error
-      ) {
+      } catch (error) {
 
         console.error(
           "Processing error:",
@@ -2606,11 +2576,9 @@ document
           }`
         );
 
-
       } finally {
 
-        button.disabled =
-          false;
+        button.disabled = false;
 
       }
 
@@ -2655,9 +2623,7 @@ function makeUniqueHeaders(
         );
 
 
-        return `Column ${
-          emptyCount + 1
-        }`;
+        return `Column ${emptyCount + 1}`;
 
       }
 
@@ -2736,19 +2702,19 @@ function displayHeaderName(
 
 
 /* ============================================================
-   HTML STRIKETHROUGH DETECTION
+   FAST HTML STRIKETHROUGH CACHE
    ============================================================ */
 
-function detectHtmlStrikethrough(
-  rowIndex,
-  cells
-) {
+function buildStrikethroughRowCache() {
+
+  strikethroughRowCache = new Set();
+
 
   if (
     !clipboardHtmlBuffer
   ) {
 
-    return false;
+    return;
 
   }
 
@@ -2767,96 +2733,51 @@ function detectHtmlStrikethrough(
 
 
     const htmlRows =
-      Array.from(
-        doc.querySelectorAll(
-          "tr"
-        )
+      doc.querySelectorAll(
+        "tr"
       );
 
 
-    /*
-     * Google Sheets HTML normally
-     * follows the same row order.
-     */
+    htmlRows.forEach(
+      (
+        tr,
+        index
+      ) => {
 
-    let tr =
-      htmlRows[
-        rowIndex
-      ];
-
-
-    /*
-     * Fallback:
-     * search for first cell text.
-     */
-
-    if (
-      !tr &&
-      cells.length
-    ) {
-
-      const firstValue =
-        String(
-          cells[0] || ""
-        );
+        const style =
+          (
+            tr.getAttribute(
+              "style"
+            ) || ""
+          ).toLowerCase();
 
 
-      if (
-        firstValue
-      ) {
+        const html =
+          tr.innerHTML.toLowerCase();
 
-        tr =
-          htmlRows.find(
-            element =>
-              element.textContent
-                .includes(
-                  firstValue
-                )
+
+        if (
+          style.includes(
+            "line-through"
+          ) ||
+          html.includes(
+            "line-through"
+          ) ||
+          html.includes(
+            "<strike"
+          ) ||
+          html.includes(
+            "<del"
+          )
+        ) {
+
+          strikethroughRowCache.add(
+            index
           );
 
+        }
+
       }
-
-    }
-
-
-    if (
-      !tr
-    ) {
-
-      return false;
-
-    }
-
-
-    const style =
-      tr.getAttribute(
-        "style"
-      ) || "";
-
-
-    const html =
-      tr.innerHTML
-        .toLowerCase();
-
-
-    return (
-      style
-        .toLowerCase()
-        .includes(
-          "line-through"
-        ) ||
-
-      html.includes(
-        "line-through"
-      ) ||
-
-      html.includes(
-        "<strike"
-      ) ||
-
-      html.includes(
-        "<del"
-      )
     );
 
 
@@ -2865,14 +2786,38 @@ function detectHtmlStrikethrough(
   ) {
 
     console.warn(
-      "Strikethrough detection failed:",
+      "Unable to build strikethrough cache:",
       error
     );
 
+    strikethroughRowCache =
+      new Set();
+
+  }
+
+}
+
+
+/* ============================================================
+   FAST HTML STRIKETHROUGH DETECTION
+   ============================================================ */
+
+function detectHtmlStrikethrough(
+  rowIndex
+) {
+
+  if (
+    !strikethroughRowCache
+  ) {
 
     return false;
 
   }
+
+
+  return strikethroughRowCache.has(
+    rowIndex
+  );
 
 }
 
@@ -2915,10 +2860,7 @@ function mergeSheetData(
    */
 
   oldHeaders.forEach(
-    (
-      header,
-      index
-    ) => {
+    (header, index) => {
 
       const key =
         oldKeys[index];
@@ -2933,7 +2875,6 @@ function mergeSheetData(
         mergedKeys.push(
           key
         );
-
 
         mergedHeaders.push(
           header
@@ -2950,10 +2891,7 @@ function mergeSheetData(
    */
 
   newHeaders.forEach(
-    (
-      header,
-      index
-    ) => {
+    (header, index) => {
 
       const key =
         newKeys[index];
@@ -2968,7 +2906,6 @@ function mergeSheetData(
         mergedKeys.push(
           key
         );
-
 
         mergedHeaders.push(
           header
@@ -3005,10 +2942,7 @@ function mergeSheetData(
 
 
       oldKeys.forEach(
-        (
-          key,
-          index
-        ) => {
+        (key, index) => {
 
           const target =
             mergedKeys.indexOf(
@@ -3069,10 +3003,7 @@ function mergeSheetData(
 
 
       newKeys.forEach(
-        (
-          key,
-          index
-        ) => {
+        (key, index) => {
 
           const target =
             mergedKeys.indexOf(
@@ -3168,8 +3099,7 @@ function createHeaderKeys(
 
 
 /* ============================================================
-   FLASH ALL HEADERS TWICE
-   Column 1 → Last Column
+   FLASH ASSIGNEE HEADER TWICE
    ============================================================ */
 
 function flashAssigneeHeader() {
@@ -3189,69 +3119,40 @@ function flashAssigneeHeader() {
   }
 
 
-  /*
-   * Flash ALL headers together.
-   * The CSS animation will run twice.
-   */
+  const flashOnce = () => {
 
-  headers.forEach(
-    header => {
+    headers.forEach(
+      header => {
 
-      header.classList.remove(
-        "header-success-flash"
-      );
+        header.classList.remove(
+          "header-success-flash"
+        );
 
+        void header.offsetWidth;
 
-      /*
-       * Force animation restart.
-       */
+        header.classList.add(
+          "header-success-flash"
+        );
 
-      void header.offsetWidth;
+      }
+    );
 
-
-      header.classList.add(
-        "header-success-flash"
-      );
-
-    }
-  );
+  };
 
 
-  /*
-   * First flash ends.
-   * Restart for the second flash.
-   */
+  flashOnce();
+
 
   setTimeout(
     () => {
 
-      headers.forEach(
-        header => {
-
-          header.classList.remove(
-            "header-success-flash"
-          );
-
-
-          void header.offsetWidth;
-
-
-          header.classList.add(
-            "header-success-flash"
-          );
-
-        }
-      );
+      flashOnce();
 
     },
     800
   );
 
 
-  /*
-   * Clean up after second flash.
-   */
-
   setTimeout(
     () => {
 
@@ -3263,7 +3164,6 @@ function flashAssigneeHeader() {
           );
 
         }
-
       );
 
     },
@@ -3272,12 +3172,9 @@ function flashAssigneeHeader() {
 
 }
 
+
 /* ============================================================
    BUILD WORKBOOK TREE
-   UPDATED:
-   - card displays Assignee
-   - card displays Assignee row count
-   - multiple assignees are displayed separately
    ============================================================ */
 
 function rebuildWorkbookTree() {
@@ -3320,8 +3217,9 @@ function rebuildWorkbookTree() {
 
 
   /*
-   * Get Assignee counts for one
-   * stored route.
+   * Calculate Assignee totals in one pass.
+   * The stored route already contains only
+   * the rows selected during extraction.
    */
 
   function getAssigneeStats(
@@ -3356,11 +3254,11 @@ function rebuildWorkbookTree() {
     }
 
 
-    const stats =
+  const counts =
       new Map();
 
 
-    rows.forEach(
+  rows.forEach(
       rowObject => {
 
         const cells =
@@ -3369,21 +3267,20 @@ function rebuildWorkbookTree() {
           )
             ? rowObject
             : (
-                rowObject.data ||
-                []
+                rowObject.data || []
               );
 
 
-        const assignee =
+        const name =
           String(
             cells[
               assigneeIndex
-            ] || ""
+            ] ?? ""
           ).trim();
 
 
         if (
-          !assignee
+          !name
         ) {
 
           return;
@@ -3391,15 +3288,13 @@ function rebuildWorkbookTree() {
         }
 
 
-        const current =
-          stats.get(
-            assignee
-          ) || 0;
-
-
-        stats.set(
-          assignee,
-          current + 1
+        counts.set(
+          name,
+          (
+            counts.get(
+              name
+            ) || 0
+          ) + 1
         );
 
       }
@@ -3407,7 +3302,7 @@ function rebuildWorkbookTree() {
 
 
     return Array.from(
-      stats.entries()
+      counts.entries()
     );
 
   }
@@ -3415,10 +3310,7 @@ function rebuildWorkbookTree() {
 
   workbooks
     .sort(
-      (
-        a,
-        b
-      ) =>
+      (a, b) =>
         a.localeCompare(
           b
         )
@@ -3520,26 +3412,21 @@ function rebuildWorkbookTree() {
               ];
 
 
+            const routeRows =
+              route.rows || [];
+
+
             const rowVolume =
-              (
-                route.rows || []
-              ).length;
+              routeRows.length;
 
 
             const strikeCount =
-              (
-                route.rows || []
-              ).filter(
+              routeRows.filter(
                 row =>
-                  row.isStrikethrough
+                  row &&
+                  row.isStrikethrough === true
               ).length;
 
-
-            /*
-             * NEW:
-             * Get individual Assignee
-             * counts for this card.
-             */
 
             const assigneeStats =
               getAssigneeStats(
@@ -3547,59 +3434,34 @@ function rebuildWorkbookTree() {
               );
 
 
-            /*
-             * NEW:
-             * Build Assignee display.
-             *
-             * Example:
-             *
-             * John · 18
-             * Mary · 24
-             * Peter · 7
-             */
-
-            let assigneeDisplay =
-              "";
-
-
-            if (
+            const assigneeDisplay =
               assigneeStats.length
-            ) {
-
-              assigneeDisplay =
-                assigneeStats
-                  .map(
-                    (
-                      [
+                ? assigneeStats
+                    .map(
+                      ([
                         name,
                         count
-                      ]
-                    ) => `
+                      ]) => `
 
-                      <span
-                        class="count-badge"
-                        title="${escapeHtml(name)}"
-                      >
-                        ${escapeHtml(name)} · ${count}
-                      </span>
+                        <span
+                          class="count-badge"
+                          title="${escapeHtml(name)}"
+                        >
+                          ${escapeHtml(name)} · ${count}
+                        </span>
 
-                    `
-                  )
-                  .join("");
+                      `
+                    )
+                    .join("")
+                : `
 
-            } else {
+                    <span
+                      class="count-badge"
+                    >
+                      No Assignee
+                    </span>
 
-              assigneeDisplay = `
-
-                <span
-                  class="count-badge"
-                >
-                  No Assignee
-                </span>
-
-              `;
-
-            }
+                  `;
 
 
             const item =
@@ -3623,7 +3485,6 @@ function rebuildWorkbookTree() {
                 📄 ${escapeHtml(subKey)}
               </span>
 
-
               <div
                 class="tree-item-meta"
                 style="
@@ -3636,7 +3497,6 @@ function rebuildWorkbookTree() {
               >
 
                 ${assigneeDisplay}
-
 
                 ${
                   strikeCount > 0
@@ -3656,14 +3516,12 @@ function rebuildWorkbookTree() {
                     : ""
                 }
 
-
                 <span
                   class="count-badge"
                   title="Total rows"
                 >
                   ${rowVolume}
                 </span>
-
 
                 <button
                   class="btn-delete-node"
@@ -3799,100 +3657,6 @@ function rebuildWorkbookTree() {
     );
 
 }
-/* ============================================================
-   CREATE HEADER KEYS
-   ============================================================ */
-
-function createHeaderKeys(
-  headers
-) {
-
-  const counts =
-    new Map();
-
-
-  return headers.map(
-    header => {
-
-      const normalized =
-        normalizeHeader(
-          displayHeaderName(
-            header
-          )
-        );
-
-
-      const current =
-        counts.get(
-          normalized
-        ) || 0;
-
-
-      counts.set(
-        normalized,
-        current + 1
-      );
-
-
-      return `${normalized}::${current}`;
-
-    }
-  );
-
-}
-
-
-/* ============================================================
-   FLASH ASSIGNEE HEADER TWICE
-   ============================================================ */
-
-function flashAssigneeHeader() {
-
-  setTimeout(
-    () => {
-
-      const header =
-        document.querySelector(
-          "th[data-assignee-header='true']"
-        );
-
-
-      if (!header) {
-
-        return;
-
-      }
-
-
-      header.classList.remove(
-        "header-success-flash"
-      );
-
-
-      void header.offsetWidth;
-
-
-      header.classList.add(
-        "header-success-flash"
-      );
-
-
-      setTimeout(
-        () => {
-
-          header.classList.remove(
-            "header-success-flash"
-          );
-
-        },
-        1500
-      );
-
-    },
-    50
-  );
-
-}
 
 
 /* ============================================================
@@ -3934,7 +3698,6 @@ async function switchViewContext(
     "activeMainSheet",
     mainKey
   );
-
 
   localStorage.setItem(
     "activeSubSheet",
@@ -4022,21 +3785,17 @@ function renderSpreadsheetViewGrid(
     );
 
 
-  if (!sheetObject) {
+  if (
+    !sheetObject
+  ) {
 
     display.innerHTML = `
 
-      <div
-        style="
-          padding:12px;
-          color:var(--text-dark);
-        "
-      >
+      <div style="padding:12px;color:var(--text-dark);">
         No workspace data found.
       </div>
 
     `;
-
 
     rangeIndicator.textContent = "";
 
@@ -4059,17 +3818,11 @@ function renderSpreadsheetViewGrid(
 
     display.innerHTML = `
 
-      <div
-        style="
-          padding:12px;
-          color:var(--text-dark);
-        "
-      >
+      <div style="padding:12px;color:var(--text-dark);">
         No row data present in this route.
       </div>
 
     `;
-
 
     rangeIndicator.textContent = "";
 
@@ -4133,8 +3886,7 @@ function renderSpreadsheetViewGrid(
         )
           ? rowObject
           : (
-              rowObject.data ||
-              []
+              rowObject.data || []
             );
 
 
@@ -4277,18 +4029,18 @@ document
                     );
 
 
-              return headers
-                .map(
-                  (
-                    header,
-                    index
-                  ) =>
-                    cells[index] !==
-                      undefined
-                      ? cells[index]
-                      : ""
-                )
-                .join("\t");
+      return headers
+        .map(
+          (
+            header,
+            index
+          ) =>
+            cells[index] !==
+              undefined
+              ? cells[index]
+              : ""
+        )
+        .join("\t");
 
             }
           );
@@ -4438,20 +4190,20 @@ document
                     );
 
 
-              return headers
-                .map(
-                  (
-                    header,
-                    index
-                  ) =>
-                    sanitize(
-                      cells[index] !==
-                        undefined
-                        ? cells[index]
-                        : ""
-                    )
-                )
-                .join(",");
+      return headers
+        .map(
+          (
+            header,
+            index
+          ) =>
+            sanitize(
+              cells[index] !==
+                undefined
+                ? cells[index]
+                : ""
+            )
+        )
+        .join(",");
 
             }
           );
@@ -4474,12 +4226,6 @@ document
         );
 
 
-      const url =
-        URL.createObjectURL(
-          blob
-        );
-
-
       const link =
         document.createElement(
           "a"
@@ -4487,238 +4233,47 @@ document
 
 
       link.href =
-        url;
-
-
-      link.download =
-        `${activeSubSheet}.csv`;
-
-
-      document.body.appendChild(
-        link
-      );
-
-
-      link.click();
-
-
-      link.remove();
-
-
-      URL.revokeObjectURL(
-        url
-      );
-
-    }
-  );
-
-
-/* ============================================================
-   EXPORT JSON
-   ============================================================ */
-
-document
-  .getElementById(
-    "btn-export-json"
-  )
-  ?.addEventListener(
-    "click",
-    () => {
-
-      if (
-        !activeMainSheet ||
-        !activeSubSheet ||
-        !projectDatabase[
-          activeMainSheet
-        ] ||
-        !projectDatabase[
-          activeMainSheet
-        ][activeSubSheet]
-      ) {
-
-        return;
-
-      }
-
-
-      const workbook =
-        projectDatabase[
-          activeMainSheet
-        ][activeSubSheet];
-
-
-      const json =
-        JSON.stringify(
-          workbook,
-          null,
-          2
-        );
-
-
-      const blob =
-        new Blob(
-          [json],
-          {
-            type:
-              "application/json"
-          }
-        );
-
-
-      const url =
         URL.createObjectURL(
           blob
         );
 
 
-      const link =
-        document.createElement(
-          "a"
-        );
-
-
-      link.href =
-        url;
-
-
       link.download =
-        `${activeSubSheet}.json`;
-
-
-      document.body.appendChild(
-        link
-      );
-
-
-      link.click();
-
-
-      link.remove();
-
-
-      URL.revokeObjectURL(
-        url
-      );
-
-    }
-  );
-
-
-/* ============================================================
-   SEARCH / FILTER CURRENT VIEW
-   ============================================================ */
-
-const searchInput =
-  document.getElementById(
-    "grid-search-input"
-  );
-
-
-if (
-  searchInput
-) {
-
-  searchInput.addEventListener(
-    "input",
-    event => {
-
-      const query =
-        String(
-          event.target.value ||
-          ""
-        )
-          .trim()
+        `${activeMainSheet}_${activeSubSheet}.csv`
+          .replace(
+            /[^a-z0-9_.-]/gi,
+            "_"
+          )
           .toLowerCase();
 
 
-      document
-        .querySelectorAll(
-          "#grid-output-view tbody tr"
-        )
-        .forEach(
-          row => {
-
-            if (
-              !query
-            ) {
-
-              row.style.display =
-                "";
-
-              return;
-
-            }
+      document.body.appendChild(
+        link
+      );
 
 
-            const text =
-              row.textContent
-                .toLowerCase();
+      link.click();
 
 
-            row.style.display =
-              text.includes(
-                query
-              )
-                ? ""
-                : "none";
+      document.body.removeChild(
+        link
+      );
 
-          }
-        );
+
+      setTimeout(
+        () =>
+          URL.revokeObjectURL(
+            link.href
+          ),
+        1000
+      );
 
     }
   );
-
-}
-
-
-/* ============================================================
-   CLEAR SEARCH
-   ============================================================ */
-
-const clearSearch =
-  document.getElementById(
-    "btn-clear-search"
-  );
-
-
-if (
-  clearSearch
-) {
-
-  clearSearch.addEventListener(
-    "click",
-    () => {
-
-      if (
-        searchInput
-      ) {
-
-        searchInput.value =
-          "";
-
-        searchInput.dispatchEvent(
-          new Event(
-            "input"
-          )
-        );
-
-      }
-
-    }
-  );
-
-}
 
 
 /* ============================================================
    GLOBAL METRICS
-   UPDATED:
-   - Total Database Volume
-   - Active Folder
-   - Active Sub Route
-   - Strikethrough Rows
-   - Keeps existing metric IDs working
-   - Works with Assignee-filtered rows
    ============================================================ */
 
 function calculateGlobalMetrics() {
@@ -4731,10 +4286,6 @@ function calculateGlobalMetrics() {
 
   let strikethrough = 0;
 
-
-  /* ==========================================================
-     CALCULATE DATABASE TOTALS
-     ========================================================== */
 
   Object.keys(
     projectDatabase
@@ -4794,10 +4345,6 @@ function calculateGlobalMetrics() {
   );
 
 
-  /* ==========================================================
-     ACTIVE FOLDER TOTAL
-     ========================================================== */
-
   let activeFolderRecords = 0;
 
 
@@ -4835,10 +4382,6 @@ function calculateGlobalMetrics() {
 
   }
 
-
-  /* ==========================================================
-     ACTIVE SUB ROUTE TOTAL
-     ========================================================== */
 
   let activeSubRouteRecords = 0;
 
@@ -4892,11 +4435,6 @@ function calculateGlobalMetrics() {
   }
 
 
-  /* ==========================================================
-     VISIBLE METRIC CARDS
-     These IDs match the HTML.
-     ========================================================== */
-
   const grandTotal =
     document.getElementById(
       "stat-grand-total"
@@ -4921,10 +4459,6 @@ function calculateGlobalMetrics() {
     );
 
 
-  /* ==========================================================
-     TOTAL DATABASE
-     ========================================================== */
-
   if (
     grandTotal
   ) {
@@ -4934,10 +4468,6 @@ function calculateGlobalMetrics() {
 
   }
 
-
-  /* ==========================================================
-     ACTIVE FOLDER
-     ========================================================== */
 
   if (
     mainTotal
@@ -4949,10 +4479,6 @@ function calculateGlobalMetrics() {
   }
 
 
-  /* ==========================================================
-     ACTIVE SUB ROUTE
-     ========================================================== */
-
   if (
     subTotal
   ) {
@@ -4963,21 +4489,9 @@ function calculateGlobalMetrics() {
   }
 
 
-  /* ==========================================================
-     STRIKETHROUGH
-     ========================================================== */
-
   if (
     strikeTotal
   ) {
-
-    /*
-     * If an active route is open,
-     * display strikes for that route.
-     *
-     * Otherwise display strikes
-     * across the entire database.
-     */
 
     const displayedStrikes =
       activeMainSheet &&
@@ -4991,10 +4505,6 @@ function calculateGlobalMetrics() {
 
   }
 
-
-  /* ==========================================================
-     KEEP ORIGINAL / OTHER METRICS WORKING
-     ========================================================== */
 
   const folderMetric =
     document.getElementById(
@@ -5060,11 +4570,8 @@ function calculateGlobalMetrics() {
   }
 
 }
-/* ============================================================
-   INITIAL METRICS
-   ============================================================ */
 
-calculateGlobalMetrics();
+
 /* ============================================================
    WIPE STORAGE
    ============================================================ */
@@ -5151,10 +4658,8 @@ document
           <div class="splash-container">
 
             <div class="splash-text">
-
               Paste sheet data stream or select a subfolder node
               from the workbook index to mount sheet records.
-
             </div>
 
           </div>
@@ -5187,20 +4692,12 @@ document
 
       clipboardHtmlBuffer = "";
 
+      strikethroughRowCache = null;
+
       detectedAssignees = [];
 
       selectedAssignees =
         new Set();
-
-      parsedRowsStream = [];
-
-      detectedHeaders = [];
-
-      detectedAssigneeColIdx =
-        -1;
-
-      detectedHeaderRowIdx =
-        -1;
 
 
       updateDropdownMenu();
@@ -5208,7 +4705,6 @@ document
       rebuildWorkbookTree();
 
       calculateGlobalMetrics();
-
 
       setActivityUrl(
         "",
@@ -5218,8 +4714,3 @@ document
 
     }
   );
-
-
-/* ============================================================
-   END OF APP.JS
-   ============================================================ */
