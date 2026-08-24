@@ -1,631 +1,1132 @@
 /* ============================================================
    SHEET TASK EXTRACTOR PRO
    DYNAMIC HEADER VERSION
-   ============================================================
-
-   IMPORTANT FEATURES
-
-   1. No fixed column positions.
-   2. Header row is detected dynamically.
-   3. Assignee column is detected dynamically.
-   4. All pasted columns are retained.
-   5. Main Folder / Sheet Name is entered by user.
-   6. Sub-route / sheet name is entered by user.
-   7. Table header stays frozen while scrolling.
-   8. Processed headers flash green twice.
-   9. Data is stored in localStorage.
-   10. Previously stored folders/routes can be opened.
-   11. Loader can be closed.
-   12. Current data opens immediately after processing.
    ============================================================ */
 
+let projectDatabase = {};
 
-(function () {
+let activeMainSheet = "";
+let activeSubSheet = "";
 
-  "use strict";
+let clipboardHtmlBuffer = "";
 
+let detectedAssignees = [];
 
-  /* ==========================================================
-     CONSTANTS
-     ========================================================== */
+let selectedAssignees = new Set();
 
-  const STORAGE_KEY =
-    "sheet_task_extractor_dynamic_v3";
+let parsedRowsStream = [];
 
+let detectedAssigneeColIdx = -1;
 
-  const THEME_KEY =
-    "sheet_task_extractor_theme_v3";
+let detectedHeaderRowIdx = -1;
 
+let detectedHeaders = [];
 
-  /* ==========================================================
-     STATE
-     ========================================================== */
+let loaderMode = "process";
 
-  let database = loadDatabase();
+let loaderCancelled = false;
 
-  let currentFolder = "";
-
-  let currentRoute = "";
-
-  let currentDataset = null;
-
-  let detectedHeaderIndex = -1;
-
-  let detectedAssigneeIndex = -1;
-
-  let detectedAssigneeHeader = "";
-
-  let currentAssignees = [];
+let loaderRunId = 0;
 
 
-  /* ==========================================================
-     DOM
-     ========================================================== */
+/* ============================================================
+   LOADER STAGES
+   ============================================================ */
 
-  const mainFolderInput =
-    document.getElementById("main-folder");
+const loaderStages = [
 
-  const subRouteInput =
-    document.getElementById("sub-route");
+  [
+    "reading",
+    "Reading data",
+    "Reading the selected data stream...",
+    18
+  ],
 
-  const pasteData =
-    document.getElementById("paste-data");
+  [
+    "analysing",
+    "Analysing data",
+    "Detecting headers, Assignee and row structure...",
+    38
+  ],
 
-  const processButton =
-    document.getElementById("process-button");
+  [
+    "arranging",
+    "Arranging data",
+    "Aligning records using the pasted headers...",
+    60
+  ],
 
-  const detectionBox =
-    document.getElementById("detection-box");
+  [
+    "storing",
+    "Storing data to the web",
+    "Saving the processed records to this workspace...",
+    82
+  ],
 
-  const assigneeList =
-    document.getElementById("assignee-list");
+  [
+    "success",
+    "Successfully extracted",
+    "The data is ready and the workspace is opening.",
+    100
+  ]
 
-  const folderTree =
-    document.getElementById("folder-tree");
-
-  const tableContainer =
-    document.getElementById("table-container");
-
-  const workspaceTitle =
-    document.getElementById("workspace-title");
-
-  const workspaceSubtitle =
-    document.getElementById("workspace-subtitle");
-
-  const totalRows =
-    document.getElementById("total-rows");
-
-  const totalColumns =
-    document.getElementById("total-columns");
-
-  const totalAssignees =
-    document.getElementById("total-assignees");
-
-  const totalStruck =
-    document.getElementById("total-struck");
-
-  const exportButton =
-    document.getElementById("export-button");
-
-  const closeViewButton =
-    document.getElementById("close-view-button");
-
-  const clearDataButton =
-    document.getElementById("clear-data-button");
-
-  const themeButton =
-    document.getElementById("theme-button");
-
-  const loaderOverlay =
-    document.getElementById("loader-overlay");
-
-  const loaderMessage =
-    document.getElementById("loader-message");
-
-  const loaderDetail =
-    document.getElementById("loader-detail");
-
-  const loaderProgressBar =
-    document.getElementById("loader-progress-bar");
-
-  const loaderClose =
-    document.getElementById("loader-close");
+];
 
 
-  /* ==========================================================
-     INITIALISE
-     ========================================================== */
+/* ============================================================
+   BASIC HELPERS
+   ============================================================ */
 
-  initialize();
+function wait(ms) {
+
+  return new Promise(
+    resolve => setTimeout(resolve, ms)
+  );
+
+}
 
 
-  function initialize() {
+function escapeHtml(value) {
 
-    applySavedTheme();
+  return String(value ?? "").replace(
+    /[&<>"']/g,
 
-    renderFolderTree();
+    char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[char])
+  );
 
-    updateStats();
+}
 
-    setupEvents();
 
+/* ============================================================
+   HEADER NORMALIZATION
+   ============================================================ */
+
+function normalizeHeader(value) {
+
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[_\-\/]+/g, " ")
+    .trim();
+
+}
+
+
+function isAssigneeHeader(value) {
+
+  const normalized =
+    normalizeHeader(value);
+
+  if (!normalized) {
+    return false;
   }
 
-
-  /* ==========================================================
-     EVENTS
-     ========================================================== */
-
-  function setupEvents() {
-
-    processButton.addEventListener(
-      "click",
-      processPastedData
-    );
-
-
-    pasteData.addEventListener(
-      "paste",
-      function () {
-
-        /*
-         Allow browser to finish putting the pasted
-         content into the textarea first.
-        */
-
-        setTimeout(
-          inspectPastedData,
-          50
-        );
-
-      }
-    );
-
-
-    pasteData.addEventListener(
-      "input",
-      debounce(
-        inspectPastedData,
-        120
-      )
-    );
-
-
-    exportButton.addEventListener(
-      "click",
-      exportCurrentCSV
-    );
-
-
-    closeViewButton.addEventListener(
-      "click",
-      closeCurrentView
-    );
-
-
-    clearDataButton.addEventListener(
-      "click",
-      clearDatabase
-    );
-
-
-    themeButton.addEventListener(
-      "click",
-      toggleTheme
-    );
-
-
-    loaderClose.addEventListener(
-      "click",
-      function () {
-
-        hideLoader();
-
-      }
-    );
-
-
-    window.addEventListener(
-      "beforeunload",
-      function () {
-
-        saveDatabase();
-
-      }
-    );
-
+  if (normalized === "assignee") {
+    return true;
   }
 
-
-  /* ==========================================================
-     STORAGE
-     ========================================================== */
-
-  function loadDatabase() {
-
-    try {
-
-      const raw =
-        localStorage.getItem(STORAGE_KEY);
-
-      if (!raw) {
-
-        return {
-          folders: {}
-        };
-
-      }
-
-      const parsed =
-        JSON.parse(raw);
-
-      if (
-        !parsed ||
-        typeof parsed !== "object"
-      ) {
-
-        return {
-          folders: {}
-        };
-
-      }
-
-      if (
-        !parsed.folders ||
-        typeof parsed.folders !== "object"
-      ) {
-
-        parsed.folders = {};
-
-      }
-
-      return parsed;
-
-    } catch (error) {
-
-      console.error(
-        "Could not load local database:",
-        error
-      );
-
-      return {
-        folders: {}
-      };
-
-    }
-
+  if (
+    normalized === "assigned to" ||
+    normalized === "assigned user" ||
+    normalized === "assigned person"
+  ) {
+    return true;
   }
 
+  return (
+    normalized.startsWith("assignee ") ||
+    normalized.startsWith("assigned ")
+  );
 
-  function saveDatabase() {
-
-    try {
-
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(database)
-      );
-
-    } catch (error) {
-
-      console.error(
-        "Could not save database:",
-        error
-      );
-
-      showToast(
-        "Could not save data to local storage.",
-        "error"
-      );
-
-    }
-
-  }
+}
 
 
-  /* ==========================================================
-     NORMALISE TEXT
-     ========================================================== */
+/* ============================================================
+   ROUTE HEADER DETECTION
+   No master header list is used.
+   ============================================================ */
 
-  function normalizeText(value) {
+function findRouteColumn(headers) {
+
+  for (
+    let i = 0;
+    i < headers.length;
+    i++
+  ) {
+
+    const normalized =
+      normalizeHeader(headers[i]);
 
     if (
-      value === null ||
-      value === undefined
+      normalized.includes("bus route") ||
+      normalized === "route" ||
+      normalized.includes("route name") ||
+      normalized.includes("route identifier")
     ) {
 
-      return "";
+      return i;
 
     }
 
-    return String(value)
-      .replace(/\uFEFF/g, "")
-      .replace(/\u00A0/g, " ")
-      .trim();
+  }
+
+  return -1;
+
+}
+
+
+/* ============================================================
+   URL ACTIVITY
+   ============================================================ */
+
+function setActivityUrl(
+  state,
+  folder = "",
+  route = ""
+) {
+
+  const params =
+    new URLSearchParams();
+
+  if (state) {
+    params.set("activity", state);
+  }
+
+  if (folder) {
+    params.set("folder", folder);
+  }
+
+  if (route) {
+    params.set("route", route);
+  }
+
+  try {
+
+    history.replaceState(
+      {
+        state,
+        folder,
+        route
+      },
+
+      "",
+
+      `${location.pathname}${
+        params.toString()
+          ? "?" + params.toString()
+          : ""
+      }`
+    );
+
+  } catch (error) {
+
+    console.warn(
+      "Unable to update activity URL:",
+      error
+    );
 
   }
 
 
-  function normalizeHeader(value) {
+  const titles = {
 
-    return normalizeText(value)
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .replace(/[_\-]+/g, " ")
-      .trim();
+    opening:
+      `Opening ${route} — ${folder} | Sheet Task Extractor Pro`,
+
+    processing:
+      `Processing data — ${folder} | Sheet Task Extractor Pro`,
+
+    viewing:
+      `${route} — ${folder} | Sheet Task Extractor Pro`,
+
+    reading:
+      `Reading data — ${route} | Sheet Task Extractor Pro`,
+
+    analysing:
+      `Analysing data — ${route} | Sheet Task Extractor Pro`,
+
+    arranging:
+      `Arranging data — ${route} | Sheet Task Extractor Pro`,
+
+    storing:
+      `Storing data — ${route} | Sheet Task Extractor Pro`,
+
+    success:
+      `Successfully extracted — ${route} | Sheet Task Extractor Pro`
+
+  };
+
+
+  document.title =
+    titles[state] ||
+    "Sheet Task Extractor Pro - Direct Ingest Workspace";
+
+}
+
+
+/* ============================================================
+   ONLINE STATUS
+   ============================================================ */
+
+function verifyOnlineStatus() {
+
+  const blocker =
+    document.getElementById(
+      "global-offline-blocker"
+    );
+
+  if (!navigator.onLine) {
+
+    blocker.classList.remove(
+      "hidden"
+    );
+
+    return false;
+
+  }
+
+  blocker.classList.add(
+    "hidden"
+  );
+
+  return true;
+
+}
+
+
+/* ============================================================
+   LOADER
+   ============================================================ */
+
+function showLoader(
+  mode,
+  folder = "",
+  route = ""
+) {
+
+  loaderMode = mode;
+
+  loaderCancelled = false;
+
+  const overlay =
+    document.getElementById(
+      "view-loader-overlay"
+    );
+
+  if (!overlay) {
+    return;
+  }
+
+  overlay.classList.remove(
+    "hidden",
+    "success-state"
+  );
+
+
+  const kicker =
+    document.getElementById(
+      "view-loader-kicker"
+    );
+
+  if (kicker) {
+
+    kicker.textContent =
+      mode === "route"
+        ? "ROUTE WORKSPACE"
+        : "DATA WORKFLOW";
 
   }
 
 
-  /*
-     This is NOT a fixed column position.
+  const routeLabel =
+    document.getElementById(
+      "loader-route-name"
+    );
 
-     The code looks through whatever headers the user
-     pasted and finds the header that represents Assignee.
+  if (routeLabel) {
 
-     Therefore:
+    if (folder || route) {
 
-     Assignee in A
-     Assignee in AH
-     Assignee in AJ
-     Assignee in AK
-     Assignee in AL
+      routeLabel.textContent =
+        `${mode === "route" ? "Opening" : "Processing"}: ${
+          folder
+        }${route ? " / " + route : ""}`;
 
-     all work.
-  */
+      routeLabel.classList.remove(
+        "hidden"
+      );
 
-  function isAssigneeHeader(value) {
+    } else {
 
-    const header =
-      normalizeHeader(value);
+      routeLabel.classList.add(
+        "hidden"
+      );
 
-    if (!header) {
+      routeLabel.textContent = "";
+
+    }
+
+  }
+
+
+  const closeButton =
+    document.getElementById(
+      "btn-close-loader"
+    );
+
+  if (closeButton) {
+
+    closeButton.disabled = false;
+
+  }
+
+}
+
+
+function hideLoader() {
+
+  const overlay =
+    document.getElementById(
+      "view-loader-overlay"
+    );
+
+  if (overlay) {
+
+    overlay.classList.add(
+      "hidden"
+    );
+
+    overlay.classList.remove(
+      "success-state"
+    );
+
+  }
+
+
+  const closeButton =
+    document.getElementById(
+      "btn-close-loader"
+    );
+
+  if (closeButton) {
+
+    closeButton.disabled = false;
+
+  }
+
+}
+
+
+function cancelLoader() {
+
+  loaderCancelled = true;
+
+  loaderRunId++;
+
+  hideLoader();
+
+  setActivityUrl(
+    "",
+    "",
+    ""
+  );
+
+}
+
+
+function setLoaderStage(key) {
+
+  const index =
+    loaderStages.findIndex(
+      stage => stage[0] === key
+    );
+
+  if (index < 0) {
+    return;
+  }
+
+  const stage =
+    loaderStages[index];
+
+
+  const title =
+    document.getElementById(
+      "view-loader-text"
+    );
+
+  const detail =
+    document.getElementById(
+      "view-loader-detail"
+    );
+
+  const progress =
+    document.getElementById(
+      "view-loader-progress"
+    );
+
+
+  if (title) {
+
+    title.textContent =
+      stage[1];
+
+  }
+
+
+  if (detail) {
+
+    detail.textContent =
+      stage[2];
+
+  }
+
+
+  if (progress) {
+
+    progress.style.width =
+      stage[3] + "%";
+
+  }
+
+
+  document
+    .querySelectorAll(
+      ".loader-step"
+    )
+    .forEach(
+      element => {
+
+        const stepKey =
+          element.dataset.step;
+
+        const stepIndex =
+          loaderStages.findIndex(
+            stageItem =>
+              stageItem[0] === stepKey
+          );
+
+
+        element.classList.remove(
+          "active",
+          "done",
+          "success"
+        );
+
+
+        if (
+          key === "success" &&
+          stepKey === "success"
+        ) {
+
+          element.classList.add(
+            "success"
+          );
+
+        } else if (
+          stepIndex < index
+        ) {
+
+          element.classList.add(
+            "done"
+          );
+
+        } else if (
+          stepIndex === index
+        ) {
+
+          element.classList.add(
+            "active"
+          );
+
+        }
+
+      }
+    );
+
+
+  const overlay =
+    document.getElementById(
+      "view-loader-overlay"
+    );
+
+  if (overlay) {
+
+    overlay.classList.toggle(
+      "success-state",
+      key === "success"
+    );
+
+  }
+
+}
+
+
+async function runActivityLoader(
+  mode,
+  folder = "",
+  route = ""
+) {
+
+  const myRunId =
+    ++loaderRunId;
+
+  showLoader(
+    mode,
+    folder,
+    route
+  );
+
+
+  for (
+    const stage of loaderStages
+  ) {
+
+    if (
+      loaderCancelled ||
+      myRunId !== loaderRunId
+    ) {
 
       return false;
 
     }
 
-    /*
-       Exact / common semantic forms.
-    */
 
-    if (
-      header === "assignee" ||
-      header === "assignee name" ||
-      header === "assigned to" ||
-      header === "assigned user" ||
-      header === "assigned person" ||
-      header === "assignee email" ||
-      header === "assignee e mail"
-    ) {
-
-      return true;
-
-    }
+    setLoaderStage(
+      stage[0]
+    );
 
 
-    /*
-       Handles headers such as:
-
-       Assignee (Email)
-       Task Assignee
-       Assignee Name / Email
-       Current Assignee
-    */
-
-    if (
-      header.includes("assignee")
-    ) {
-
-      return true;
-
-    }
+    setActivityUrl(
+      stage[0],
+      folder,
+      route
+    );
 
 
     if (
-      header.includes("assigned to")
+      stage[0] !== "success"
     ) {
 
-      return true;
+      await wait(
+        mode === "route"
+          ? 180
+          : 240
+      );
 
     }
 
+  }
+
+
+  await wait(
+    mode === "route"
+      ? 220
+      : 350
+  );
+
+
+  if (
+    loaderCancelled ||
+    myRunId !== loaderRunId
+  ) {
 
     return false;
 
   }
 
 
-  /* ==========================================================
-     TSV PARSER
-     ========================================================== */
+  return true;
 
-  function parsePastedText(text) {
-
-    const cleaned =
-      String(text || "")
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n")
-        .replace(/^\uFEFF/, "");
+}
 
 
-    const lines =
-      cleaned.split("\n");
+/* ============================================================
+   INITIAL LOAD
+   ============================================================ */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    verifyOnlineStatus();
 
 
-    const rows = [];
+    const savedData =
+      localStorage.getItem(
+        "projectDatabase"
+      );
 
 
-    for (
-      let i = 0;
-      i < lines.length;
-      i++
+    const savedTheme =
+      localStorage.getItem(
+        "appTheme"
+      );
+
+
+    const savedMain =
+      localStorage.getItem(
+        "activeMainSheet"
+      );
+
+
+    const savedSub =
+      localStorage.getItem(
+        "activeSubSheet"
+      );
+
+
+    if (savedData) {
+
+      try {
+
+        projectDatabase =
+          JSON.parse(
+            savedData
+          ) || {};
+
+      } catch (error) {
+
+        console.error(
+          "Unable to restore database:",
+          error
+        );
+
+        projectDatabase = {};
+
+      }
+
+    }
+
+
+    if (
+      savedTheme === "dark"
     ) {
 
-      const line =
-        lines[i];
-
-
-      /*
-         Keep empty cells.
-
-         Google Sheets uses TAB separated
-         clipboard data.
-      */
-
-      const cells =
-        parseTSVLine(line);
-
-
-      /*
-         Ignore completely empty lines.
-      */
-
-      const hasContent =
-        cells.some(
-          cell =>
-            normalizeText(cell) !== ""
+      document.documentElement
+        .setAttribute(
+          "data-theme",
+          "dark"
         );
 
 
-      if (hasContent) {
+      const toggleButton =
+        document.getElementById(
+          "theme-toggle-btn"
+        );
 
-        rows.push(cells);
+
+      if (toggleButton) {
+
+        toggleButton.textContent =
+          "☼ Light Mode";
 
       }
 
     }
 
 
-    return rows;
+    updateDropdownMenu();
 
-  }
-
-
-  function parseTSVLine(line) {
-
-    const result = [];
-
-    let current = "";
-
-    let inQuotes = false;
+    rebuildWorkbookTree();
 
 
-    for (
-      let i = 0;
-      i < line.length;
-      i++
+    if (
+      savedMain &&
+      savedSub &&
+      projectDatabase[savedMain] &&
+      projectDatabase[savedMain][savedSub]
     ) {
 
-      const char =
-        line[i];
+      activeMainSheet =
+        savedMain;
+
+      activeSubSheet =
+        savedSub;
 
 
-      if (char === '"') {
-
-        /*
-           Double quote inside a quoted field.
-        */
-
-        if (
-          inQuotes &&
-          line[i + 1] === '"'
-        ) {
-
-          current += '"';
-
-          i++;
-
-          continue;
-
-        }
+      document
+        .getElementById(
+          "view-navigation-row"
+        )
+        .classList.remove(
+          "hidden"
+        );
 
 
-        inQuotes =
-          !inQuotes;
+      document
+        .getElementById(
+          "view-title"
+        )
+        .innerHTML =
+          `Folder: <b>${escapeHtml(savedMain)}</b> ➔ Route: <b>${escapeHtml(savedSub)}</b>`;
 
-        continue;
 
-      }
+      renderSpreadsheetViewGrid(
+        projectDatabase[savedMain][savedSub]
+      );
+
+      setActivityUrl(
+        "viewing",
+        savedMain,
+        savedSub
+      );
+
+    }
+
+
+    calculateGlobalMetrics();
+
+  }
+);
+
+
+/* ============================================================
+   NETWORK
+   ============================================================ */
+
+window.addEventListener(
+  "offline",
+  verifyOnlineStatus
+);
+
+window.addEventListener(
+  "online",
+  verifyOnlineStatus
+);
+
+
+/* ============================================================
+   PASTE EVENT
+   ============================================================ */
+
+document
+  .getElementById(
+    "paste-input"
+  )
+  .addEventListener(
+    "paste",
+    event => {
+
+      clipboardHtmlBuffer = "";
 
 
       if (
-        char === "\t" &&
-        !inQuotes
+        event.clipboardData
       ) {
 
-        result.push(current);
+        const htmlData =
+          event.clipboardData.getData(
+            "text/html"
+          );
 
-        current = "";
 
-        continue;
+        if (htmlData) {
+
+          clipboardHtmlBuffer =
+            htmlData;
+
+        }
 
       }
 
 
-      result.push;
-
-      current += char;
+      setTimeout(
+        parsePastedStreamForAssignees,
+        100
+      );
 
     }
+  );
 
 
-    result.push(current);
+document
+  .getElementById(
+    "paste-input"
+  )
+  .addEventListener(
+    "input",
+    () => {
 
-    return result;
+      parsePastedStreamForAssignees();
+
+    }
+  );
+
+
+/* ============================================================
+   PARSE PASTED DATA
+   ============================================================ */
+
+function parsePastedStreamForAssignees() {
+
+  const rawText =
+    document.getElementById(
+      "paste-input"
+    ).value;
+
+
+  const container =
+    document.getElementById(
+      "assignee-selector-box"
+    );
+
+
+  const pillsList =
+    document.getElementById(
+      "assignee-pills-list"
+    );
+
+
+  if (
+    !rawText.trim()
+  ) {
+
+    container.classList.add(
+      "hidden"
+    );
+
+    detectedAssignees = [];
+
+    selectedAssignees =
+      new Set();
+
+    return;
 
   }
 
 
-  /* ==========================================================
-     HEADER ROW DETECTION
-     ========================================================== */
+  const lines =
+    rawText
+      .split(/\r?\n/)
+      .filter(
+        line =>
+          line.trim().length > 0
+      );
 
-  function detectHeaderRow(rows) {
+
+  if (
+    !lines.length
+  ) {
+
+    container.classList.add(
+      "hidden"
+    );
+
+    return;
+
+  }
+
+
+  parsedRowsStream =
+    lines.map(
+      line =>
+        line
+          .split("\t")
+          .map(
+            cell =>
+              cell.trim()
+          )
+    );
+
+
+  /*
+   * Find the actual header row.
+   *
+   * We inspect the first 10 rows.
+   * No masterHeaders are used.
+   */
+
+  detectedHeaderRowIdx = -1;
+
+  detectedAssigneeColIdx = -1;
+
+  detectedHeaders = [];
+
+
+  for (
+    let rowIndex = 0;
+
+    rowIndex <
+    Math.min(
+      parsedRowsStream.length,
+      10
+    );
+
+    rowIndex++
+  ) {
+
+    const row =
+      parsedRowsStream[
+        rowIndex
+      ];
+
+
+    const assigneeIndex =
+      row.findIndex(
+        isAssigneeHeader
+      );
+
 
     if (
-      !Array.isArray(rows) ||
-      rows.length === 0
+      assigneeIndex !== -1
     ) {
 
-      return -1;
+      detectedHeaderRowIdx =
+        rowIndex;
+
+      detectedAssigneeColIdx =
+        assigneeIndex;
+
+      detectedHeaders =
+        row.map(
+          cell =>
+            cell.trim()
+        );
+
+      break;
 
     }
 
+  }
 
-    /*
-       First priority:
 
-       Find a row that contains the actual
-       Assignee header.
+  /*
+   * If no Assignee header is found,
+   * still try to identify a sensible
+   * header row.
+   */
 
-       This makes Assignee detection work even
-       if there are title rows above the headers.
-    */
+  if (
+    detectedHeaderRowIdx === -1
+  ) {
+
+    const candidateIndex =
+      parsedRowsStream.findIndex(
+        row =>
+          row.length >= 2 &&
+          row.some(
+            cell =>
+              normalizeHeader(cell) ===
+                "location name" ||
+              normalizeHeader(cell) ===
+                "location description" ||
+              normalizeHeader(cell) ===
+                "video name" ||
+              normalizeHeader(cell) ===
+                "site id"
+          )
+      );
+
+
+    if (
+      candidateIndex !== -1
+    ) {
+
+      detectedHeaderRowIdx =
+        candidateIndex;
+
+      detectedHeaders =
+        parsedRowsStream[
+          candidateIndex
+        ].map(
+          cell =>
+            cell.trim()
+        );
+
+    } else {
+
+      detectedHeaderRowIdx = 0;
+
+      detectedHeaders =
+        parsedRowsStream[0].map(
+          cell =>
+            cell.trim()
+        );
+
+    }
+
+  }
+
+
+  /*
+   * Search Assignee again from
+   * the selected actual header.
+   */
+
+  if (
+    detectedHeaders.length
+  ) {
+
+    detectedAssigneeColIdx =
+      detectedHeaders.findIndex(
+        isAssigneeHeader
+      );
+
+  }
+
+
+  /*
+   * Extract unique assignees.
+   */
+
+  const assigneeSet =
+    new Set();
+
+
+  const startRow =
+    detectedHeaderRowIdx + 1;
+
+
+  if (
+    detectedAssigneeColIdx !== -1
+  ) {
 
     for (
-      let rowIndex = 0;
-      rowIndex < Math.min(rows.length, 30);
+      let rowIndex = startRow;
+
+      rowIndex <
+      parsedRowsStream.length;
+
       rowIndex++
     ) {
 
       const row =
-        rows[rowIndex];
+        parsedRowsStream[
+          rowIndex
+        ];
 
 
-      for (
-        let columnIndex = 0;
-        columnIndex < row.length;
-        columnIndex++
+      const value =
+        row[
+          detectedAssigneeColIdx
+        ];
+
+
+      if (
+        value &&
+        value.trim()
       ) {
 
+        const cleanValue =
+          value.trim();
+
+
         if (
-          isAssigneeHeader(
-            row[columnIndex]
+          !isAssigneeHeader(
+            cleanValue
           )
         ) {
 
-          return rowIndex;
+          assigneeSet.add(
+            cleanValue
+          );
 
         }
 
@@ -633,2623 +1134,3211 @@
 
     }
 
-
-    /*
-       If Assignee is not present, detect the most
-       likely header row based on the row containing
-       the highest number of unique non-empty cells.
-    */
-
-    let bestIndex = 0;
-
-    let bestScore = -Infinity;
+  }
 
 
-    const limit =
-      Math.min(rows.length, 20);
+  detectedAssignees =
+    Array.from(
+      assigneeSet
+    );
 
 
-    for (
-      let i = 0;
-      i < limit;
-      i++
+  /*
+   * Default:
+   * all assignees selected.
+   */
+
+  selectedAssignees =
+    new Set(
+      detectedAssignees
+    );
+
+
+  /*
+   * Auto detect route from actual
+   * pasted header if available.
+   */
+
+  const routeColumn =
+    findRouteColumn(
+      detectedHeaders
+    );
+
+
+  if (
+    routeColumn !== -1 &&
+    parsedRowsStream.length >
+      detectedHeaderRowIdx + 1
+  ) {
+
+    const detectedRoute =
+      parsedRowsStream[
+        detectedHeaderRowIdx + 1
+      ][routeColumn] || "";
+
+
+    const routeInput =
+      document.getElementById(
+        "sub-sheet-input"
+      );
+
+
+    if (
+      routeInput &&
+      !routeInput.value.trim() &&
+      detectedRoute.trim()
     ) {
 
-      const row =
-        rows[i];
-
-
-      const nonEmpty =
-        row.filter(
-          cell =>
-            normalizeText(cell) !== ""
-        );
-
-
-      if (nonEmpty.length === 0) {
-
-        continue;
-
-      }
-
-
-      const unique =
-        new Set(
-          nonEmpty.map(
-            cell =>
-              normalizeHeader(cell)
-          )
-        ).size;
-
-
-      const textLike =
-        nonEmpty.filter(
-          cell =>
-            /[a-zA-Z]/.test(
-              String(cell)
-            )
-        ).length;
-
-
-      const numericLike =
-        nonEmpty.filter(
-          cell =>
-            /^[-+]?\d+([.,]\d+)?$/.test(
-              normalizeText(cell)
-            )
-        ).length;
-
-
-      /*
-         Header rows usually contain many text fields
-         and many unique values, but relatively fewer
-         pure numbers.
-      */
-
-      let score =
-        nonEmpty.length * 3;
-
-      score += unique * 2;
-
-      score += textLike * 2;
-
-      score -= numericLike;
-
-
-      /*
-         Slight preference for earlier rows.
-      */
-
-      score -= i * 0.15;
-
-
-      if (
-        score > bestScore
-      ) {
-
-        bestScore = score;
-
-        bestIndex = i;
-
-      }
+      routeInput.value =
+        detectedRoute.trim();
 
     }
-
-
-    return bestIndex;
 
   }
 
 
-  /* ==========================================================
-     ASSIGNEE COLUMN DETECTION
-     ========================================================== */
+  /*
+   * Render Assignee selector.
+   */
 
-  function detectAssigneeColumn(headers) {
+  renderAssigneeSelector();
 
-    if (
-      !Array.isArray(headers)
-    ) {
+}
 
-      return -1;
+
+/* ============================================================
+   ASSIGNEE SELECTOR
+   ============================================================ */
+
+function renderAssigneeSelector() {
+
+  const container =
+    document.getElementById(
+      "assignee-selector-box"
+    );
+
+
+  const pillsList =
+    document.getElementById(
+      "assignee-pills-list"
+    );
+
+
+  const count =
+    document.getElementById(
+      "assignee-count"
+    );
+
+
+  if (
+    !detectedAssignees.length
+  ) {
+
+    container.classList.add(
+      "hidden"
+    );
+
+    return;
+
+  }
+
+
+  pillsList.innerHTML = "";
+
+
+  count.textContent =
+    `${detectedAssignees.length} found`;
+
+
+  /*
+   * ALL ASSIGNEES
+   */
+
+  const allPill =
+    document.createElement(
+      "div"
+    );
+
+
+  allPill.className =
+    "assignee-pill";
+
+
+  const allSelected =
+    selectedAssignees.size ===
+      detectedAssignees.length;
+
+
+  if (allSelected) {
+
+    allPill.classList.add(
+      "all-selected"
+    );
+
+  }
+
+
+  allPill.textContent =
+    "All Assignees";
+
+
+  allPill.title =
+    "Select all assignees";
+
+
+  allPill.addEventListener(
+    "click",
+    () => {
+
+      selectedAssignees =
+        new Set(
+          detectedAssignees
+        );
+
+      renderAssigneeSelector();
 
     }
+  );
 
 
-    for (
-      let i = 0;
-      i < headers.length;
-      i++
-    ) {
+  pillsList.appendChild(
+    allPill
+  );
+
+
+  /*
+   * INDIVIDUAL ASSIGNEES
+   */
+
+  detectedAssignees.forEach(
+    name => {
+
+      const pill =
+        document.createElement(
+          "div"
+        );
+
+
+      pill.className =
+        "assignee-pill";
+
 
       if (
-        isAssigneeHeader(
-          headers[i]
+        selectedAssignees.has(
+          name
         )
       ) {
 
-        return i;
+        pill.classList.add(
+          "selected"
+        );
 
       }
 
+
+      pill.textContent =
+        name;
+
+
+      pill.title =
+        "Click to select or remove this assignee";
+
+
+      pill.addEventListener(
+        "click",
+        () => {
+
+          toggleAssignee(
+            name
+          );
+
+        }
+      );
+
+
+      pillsList.appendChild(
+        pill
+      );
+
     }
+  );
 
 
-    return -1;
+  container.classList.remove(
+    "hidden"
+  );
 
-  }
+}
 
 
-  /* ==========================================================
-     NORMALISE DATASET
-     ========================================================== */
+/* ============================================================
+   TOGGLE ASSIGNEE
+   ============================================================ */
 
-  function buildDataset(
-    rows,
-    folderName,
-    routeName
+function toggleAssignee(
+  name
+) {
+
+  if (
+    selectedAssignees.has(
+      name
+    )
   ) {
 
-    if (
-      !rows ||
-      !rows.length
-    ) {
+    selectedAssignees.delete(
+      name
+    );
 
-      throw new Error(
-        "No usable rows were found."
+  } else {
+
+    selectedAssignees.add(
+      name
+    );
+
+  }
+
+
+  renderAssigneeSelector();
+
+}
+
+
+/* ============================================================
+   THEME
+   ============================================================ */
+
+document
+  .getElementById(
+    "theme-toggle-btn"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      const currentTheme =
+        document.documentElement
+          .getAttribute(
+            "data-theme"
+          );
+
+
+      const targetTheme =
+        currentTheme === "light"
+          ? "dark"
+          : "light";
+
+
+      document.documentElement
+        .setAttribute(
+          "data-theme",
+          targetTheme
+        );
+
+
+      document
+        .getElementById(
+          "theme-toggle-btn"
+        )
+        .textContent =
+          targetTheme === "dark"
+            ? "☼ Light Mode"
+            : "◑ Dark Mode";
+
+
+      localStorage.setItem(
+        "appTheme",
+        targetTheme
       );
 
     }
+  );
 
 
-    const headerIndex =
-      detectHeaderRow(rows);
+/* ============================================================
+   ADD NEW FOLDER
+   ============================================================ */
 
+document
+  .getElementById(
+    "add-folder-btn"
+  )
+  .addEventListener(
+    "click",
+    () => {
 
-    if (
-      headerIndex < 0
-    ) {
-
-      throw new Error(
-        "Could not detect the header row."
-      );
-
-    }
-
-
-    const rawHeaders =
-      rows[headerIndex];
-
-
-    /*
-       Keep the user's headers.
-
-       Do not replace them with our own
-       hardcoded header list.
-    */
-
-    const headers =
-      rawHeaders.map(
-        (header, index) => {
-
-          const value =
-            normalizeText(header);
-
-          /*
-             Empty header cells still need a usable
-             display name, but this is generated only
-             for blank cells.
-          */
-
-          if (value) {
-
-            return value;
-
-          }
-
-          return `Column ${index + 1}`;
-
-        }
-      );
-
-
-    /*
-       Remove trailing completely empty columns.
-
-       Do NOT remove columns in the middle.
-    */
-
-    let lastUsefulColumn =
-      headers.length - 1;
-
-
-    for (
-      let c = headers.length - 1;
-      c >= 0;
-      c--
-    ) {
-
-      let useful = false;
-
-
-      for (
-        let r = headerIndex + 1;
-        r < rows.length;
-        r++
-      ) {
-
-        if (
-          normalizeText(
-            rows[r][c]
-          ) !== ""
-        ) {
-
-          useful = true;
-
-          break;
-
-        }
-
-      }
+      const name =
+        prompt(
+          "Enter the new Main Folder / Sheet Name:"
+        );
 
 
       if (
-        normalizeText(
-          headers[c]
-        ) !== ""
+        name === null
       ) {
-
-        useful = true;
-
-      }
-
-
-      if (useful) {
-
-        lastUsefulColumn = c;
-
-        break;
-
-      }
-
-    }
-
-
-    const finalHeaders =
-      headers.slice(
-        0,
-        lastUsefulColumn + 1
-      );
-
-
-    const dataRows = [];
-
-
-    for (
-      let r = headerIndex + 1;
-      r < rows.length;
-      r++
-    ) {
-
-      const sourceRow =
-        rows[r] || [];
-
-
-      const row =
-        [];
-
-
-      let hasData = false;
-
-
-      for (
-        let c = 0;
-        c < finalHeaders.length;
-        c++
-      ) {
-
-        const value =
-          sourceRow[c] === undefined
-            ? ""
-            : String(sourceRow[c]);
-
-
-        row.push(value);
-
-
-        if (
-          normalizeText(value) !== ""
-        ) {
-
-          hasData = true;
-
-        }
-
-      }
-
-
-      if (hasData) {
-
-        dataRows.push(row);
-
-      }
-
-    }
-
-
-    const assigneeIndex =
-      detectAssigneeColumn(
-        finalHeaders
-      );
-
-
-    const assigneeHeader =
-      assigneeIndex >= 0
-        ? finalHeaders[assigneeIndex]
-        : "";
-
-
-    const assignees =
-      assigneeIndex >= 0
-        ? uniqueNonEmptyValues(
-            dataRows.map(
-              row =>
-                row[assigneeIndex]
-            )
-          )
-        : [];
-
-
-    return {
-
-      id:
-        createId(),
-
-      folder:
-        folderName,
-
-      route:
-        routeName,
-
-      headers:
-        finalHeaders,
-
-      rows:
-        dataRows,
-
-      headerIndex,
-
-      assigneeIndex,
-
-      assigneeHeader,
-
-      assignees,
-
-      createdAt:
-        new Date().toISOString(),
-
-      updatedAt:
-        new Date().toISOString()
-
-    };
-
-  }
-
-
-  /* ==========================================================
-     PROCESS DATA
-     ========================================================== */
-
-  async function processPastedData() {
-
-    const folderName =
-      normalizeText(
-        mainFolderInput.value
-      );
-
-
-    const routeName =
-      normalizeText(
-        subRouteInput.value
-      );
-
-
-    const text =
-      pasteData.value;
-
-
-    if (!folderName) {
-
-      showToast(
-        "Enter the Main Folder / Sheet Name first.",
-        "error"
-      );
-
-      mainFolderInput.focus();
-
-      return;
-
-    }
-
-
-    if (!text.trim()) {
-
-      showToast(
-        "Paste the Google Sheets data first.",
-        "error"
-      );
-
-      pasteData.focus();
-
-      return;
-
-    }
-
-
-    processButton.disabled = true;
-
-
-    try {
-
-      showLoader();
-
-      await loaderStage(
-        "reading",
-        "Reading Data",
-        "Reading the pasted Google Sheets data...",
-        20,
-        300
-      );
-
-
-      const rows =
-        parsePastedText(text);
-
-
-      if (
-        rows.length === 0
-      ) {
-
-        throw new Error(
-          "No data was found in the pasted content."
-        );
-
-      }
-
-
-      await loaderStage(
-        "analysing",
-        "Analysing Data",
-        "Finding the real header row and Assignee column...",
-        42,
-        350
-      );
-
-
-      const dataset =
-        buildDataset(
-          rows,
-          folderName,
-          routeName
-        );
-
-
-      await loaderStage(
-        "arranging",
-        "Arranging Data",
-        "Keeping all pasted columns in their original order...",
-        64,
-        300
-      );
-
-
-      /*
-         Store dataset.
-      */
-
-      saveDataset(
-        dataset
-      );
-
-
-      await loaderStage(
-        "storing",
-        "Storing Data",
-        "Saving the processed dataset...",
-        84,
-        350
-      );
-
-
-      currentFolder =
-        folderName;
-
-      currentRoute =
-        routeName;
-
-      currentDataset =
-        dataset;
-
-      detectedHeaderIndex =
-        dataset.headerIndex;
-
-      detectedAssigneeIndex =
-        dataset.assigneeIndex;
-
-      detectedAssigneeHeader =
-        dataset.assigneeHeader;
-
-      currentAssignees =
-        dataset.assignees;
-
-
-      renderFolderTree();
-
-      renderCurrentDataset();
-
-      updateDetectionPanel();
-
-      updateStats();
-
-
-      await loaderStage(
-        "success",
-        "Success",
-        "Data processed successfully. Opening it now...",
-        100,
-        250
-      );
-
-
-      hideLoader();
-
-
-      /*
-         IMPORTANT:
-         Flash after table has actually been rendered.
-
-         This is why the green flash now works.
-      */
-
-      requestAnimationFrame(
-        function () {
-
-          setTimeout(
-            flashProcessedHeaders,
-            80
-          );
-
-        }
-      );
-
-
-      showToast(
-        `${dataset.rows.length} rows processed successfully.`,
-        "success"
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        "Processing error:",
-        error
-      );
-
-      hideLoader();
-
-      showToast(
-        error.message ||
-        "Could not process the pasted data.",
-        "error"
-      );
-
-    } finally {
-
-      processButton.disabled = false;
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     SAVE DATASET
-     ========================================================== */
-
-  function saveDataset(dataset) {
-
-    const folder =
-      dataset.folder;
-
-
-    const route =
-      dataset.route ||
-      "Main Data";
-
-
-    if (
-      !database.folders[folder]
-    ) {
-
-      database.folders[folder] = {
-
-        name:
-          folder,
-
-        routes: {}
-
-      };
-
-    }
-
-
-    database.folders[folder].routes[route] =
-      dataset;
-
-
-    saveDatabase();
-
-  }
-
-
-  /* ==========================================================
-     RENDER FOLDER TREE
-     ========================================================== */
-
-  function renderFolderTree() {
-
-    folderTree.innerHTML = "";
-
-
-    const folderNames =
-      Object.keys(
-        database.folders
-      );
-
-
-    if (
-      folderNames.length === 0
-    ) {
-
-      folderTree.innerHTML = `
-        <div class="tree-empty">
-          No stored folders yet.
-        </div>
-      `;
-
-      return;
-
-    }
-
-
-    folderNames.forEach(
-      folderName => {
-
-        const folder =
-          database.folders[
-            folderName
-          ];
-
-
-        const folderBlock =
-          document.createElement(
-            "div"
-          );
-
-        folderBlock.className =
-          "folder-block";
-
-
-        const routes =
-          folder.routes || {};
-
-
-        const routeNames =
-          Object.keys(routes);
-
-
-        let totalRowsInFolder = 0;
-
-
-        routeNames.forEach(
-          routeName => {
-
-            const dataset =
-              routes[routeName];
-
-
-            if (
-              dataset &&
-              Array.isArray(
-                dataset.rows
-              )
-            ) {
-
-              totalRowsInFolder +=
-                dataset.rows.length;
-
-            }
-
-          }
-        );
-
-
-        const folderHeader =
-          document.createElement(
-            "div"
-          );
-
-        folderHeader.className =
-          "folder-header";
-
-
-        folderHeader.innerHTML = `
-
-          <div class="folder-name">
-            ${escapeHTML(folderName)}
-          </div>
-
-          <div class="folder-count">
-            ${totalRowsInFolder}
-          </div>
-
-        `;
-
-
-        const routesContainer =
-          document.createElement(
-            "div"
-          );
-
-        routesContainer.className =
-          "folder-routes";
-
-
-        routeNames.forEach(
-          routeName => {
-
-            const dataset =
-              routes[routeName];
-
-
-            const routeItem =
-              document.createElement(
-                "div"
-              );
-
-            routeItem.className =
-              "route-item";
-
-
-            if (
-              currentFolder === folderName &&
-              currentRoute === routeName
-            ) {
-
-              routeItem.classList.add(
-                "active"
-              );
-
-            }
-
-
-            const rowCount =
-              dataset &&
-              Array.isArray(
-                dataset.rows
-              )
-                ? dataset.rows.length
-                : 0;
-
-
-            routeItem.innerHTML = `
-
-              <div
-                class="route-name"
-                title="${escapeAttribute(routeName)}"
-              >
-                ${escapeHTML(routeName)}
-              </div>
-
-              <div class="route-count">
-                ${rowCount}
-              </div>
-
-            `;
-
-
-            routeItem.addEventListener(
-              "click",
-              function () {
-
-                openStoredDataset(
-                  folderName,
-                  routeName
-                );
-
-              }
-            );
-
-
-            routesContainer.appendChild(
-              routeItem
-            );
-
-          }
-        );
-
-
-        folderHeader.addEventListener(
-          "click",
-          function () {
-
-            routesContainer.classList.toggle(
-              "hidden"
-            );
-
-          }
-        );
-
-
-        folderBlock.appendChild(
-          folderHeader
-        );
-
-
-        folderBlock.appendChild(
-          routesContainer
-        );
-
-
-        folderTree.appendChild(
-          folderBlock
-        );
-
-      }
-    );
-
-  }
-
-
-  /* ==========================================================
-     OPEN STORED DATASET
-     ========================================================== */
-
-  async function openStoredDataset(
-    folderName,
-    routeName
-  ) {
-
-    const folder =
-      database.folders[
-        folderName
-      ];
-
-
-    if (!folder) {
-
-      showToast(
-        "Folder was not found.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    const dataset =
-      folder.routes &&
-      folder.routes[
-        routeName
-      ];
-
-
-    if (!dataset) {
-
-      showToast(
-        "Stored route was not found.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    showLoader();
-
-
-    try {
-
-      await loaderStage(
-        "reading",
-        "Reading Data",
-        "Opening the selected dataset...",
-        20,
-        220
-      );
-
-
-      await loaderStage(
-        "analysing",
-        "Analysing Data",
-        "Checking the stored headers...",
-        40,
-        220
-      );
-
-
-      await loaderStage(
-        "arranging",
-        "Arranging Data",
-        "Preparing the table...",
-        60,
-        180
-      );
-
-
-      currentFolder =
-        folderName;
-
-      currentRoute =
-        routeName;
-
-      currentDataset =
-        dataset;
-
-
-      detectedHeaderIndex =
-        dataset.headerIndex ?? 0;
-
-      detectedAssigneeIndex =
-        detectAssigneeColumn(
-          dataset.headers
-        );
-
-      detectedAssigneeHeader =
-        detectedAssigneeIndex >= 0
-          ? dataset.headers[
-              detectedAssigneeIndex
-            ]
-          : "";
-
-
-      currentAssignees =
-        uniqueNonEmptyValues(
-          detectedAssigneeIndex >= 0
-            ? dataset.rows.map(
-                row =>
-                  row[
-                    detectedAssigneeIndex
-                  ]
-              )
-            : []
-        );
-
-
-      renderCurrentDataset();
-
-      updateDetectionPanel();
-
-      updateStats();
-
-      renderFolderTree();
-
-
-      await loaderStage(
-        "storing",
-        "Loading View",
-        "Opening the selected data...",
-        82,
-        180
-      );
-
-
-      await loaderStage(
-        "success",
-        "Success",
-        "Dataset is ready.",
-        100,
-        180
-      );
-
-
-      hideLoader();
-
-
-      /*
-         Also flash headers when an existing dataset
-         is opened.
-      */
-
-      requestAnimationFrame(
-        function () {
-
-          setTimeout(
-            flashProcessedHeaders,
-            80
-          );
-
-        }
-      );
-
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-      hideLoader();
-
-      showToast(
-        "Could not open the selected dataset.",
-        "error"
-      );
-
-    }
-
-  }
-
-
-  /* ==========================================================
-     RENDER TABLE
-     ========================================================== */
-
-  function renderCurrentDataset() {
-
-    if (
-      !currentDataset
-    ) {
-
-      return;
-
-    }
-
-
-    const headers =
-      currentDataset.headers || [];
-
-
-    const rows =
-      currentDataset.rows || [];
-
-
-    /*
-       Build table using the exact dynamic headers.
-    */
-
-    const table =
-      document.createElement(
-        "table"
-      );
-
-    table.id =
-      "data-table";
-
-
-    const thead =
-      document.createElement(
-        "thead"
-      );
-
-
-    const headerRow =
-      document.createElement(
-        "tr"
-      );
-
-
-    headers.forEach(
-      (header, index) => {
-
-        const th =
-          document.createElement(
-            "th"
-          );
-
-
-        th.textContent =
-          header;
-
-
-        th.dataset.columnIndex =
-          String(index);
-
-
-        /*
-           Mark Assignee header.
-        */
-
-        if (
-          index ===
-          currentDataset.assigneeIndex
-        ) {
-
-          th.classList.add(
-            "header-assignee"
-          );
-
-          th.dataset.assignee =
-            "true";
-
-        }
-
-
-        headerRow.appendChild(
-          th
-        );
-
-      }
-    );
-
-
-    thead.appendChild(
-      headerRow
-    );
-
-
-    const tbody =
-      document.createElement(
-        "tbody"
-      );
-
-
-    rows.forEach(
-      (row, rowIndex) => {
-
-        const tr =
-          document.createElement(
-            "tr"
-          );
-
-
-        tr.dataset.rowIndex =
-          String(rowIndex);
-
-
-        /*
-           Preserve all columns.
-        */
-
-        for (
-          let c = 0;
-          c < headers.length;
-          c++
-        ) {
-
-          const td =
-            document.createElement(
-              "td"
-            );
-
-
-          const value =
-            row[c] === undefined
-              ? ""
-              : row[c];
-
-
-          td.textContent =
-            value;
-
-
-          td.title =
-            value;
-
-
-          td.dataset.columnIndex =
-            String(c);
-
-
-          tr.appendChild(
-            td
-          );
-
-        }
-
-
-        /*
-           Google Sheets copied data does not reliably
-           carry strikethrough formatting through plain
-           clipboard text.
-
-           This class is therefore only applied if the
-           stored dataset explicitly contains it.
-        */
-
-        if (
-          Array.isArray(
-            currentDataset.struckRows
-          ) &&
-          currentDataset.struckRows.includes(
-            rowIndex
-          )
-        ) {
-
-          tr.style.textDecoration =
-            "line-through";
-
-          tr.style.opacity =
-            "0.55";
-
-        }
-
-
-        tbody.appendChild(
-          tr
-        );
-
-      }
-    );
-
-
-    table.appendChild(
-      thead
-    );
-
-    table.appendChild(
-      tbody
-    );
-
-
-    tableContainer.innerHTML =
-      "";
-
-    tableContainer.appendChild(
-      table
-    );
-
-
-    workspaceTitle.textContent =
-      currentRoute
-        ? `${currentFolder} / ${currentRoute}`
-        : currentFolder;
-
-
-    workspaceSubtitle.textContent =
-      `${rows.length} rows • ${headers.length} columns` +
-      (
-        currentDataset.assigneeIndex >= 0
-          ? ` • Assignee: ${currentDataset.assigneeHeader}`
-          : " • Assignee header not found"
-      );
-
-
-    /*
-       Make sure the table container is at the
-       top whenever a new dataset opens.
-    */
-
-    tableContainer.scrollTop =
-      0;
-
-    tableContainer.scrollLeft =
-      0;
-
-  }
-
-
-  /* ==========================================================
-     GREEN FLASH
-     ========================================================== */
-
-  function flashProcessedHeaders() {
-
-    const table =
-      document.getElementById(
-        "data-table"
-      );
-
-
-    if (!table) {
-
-      return;
-
-    }
-
-
-    const headers =
-      table.querySelectorAll(
-        "thead th"
-      );
-
-
-    if (
-      !headers.length
-    ) {
-
-      return;
-
-    }
-
-
-    /*
-       Remove old animation classes first.
-    */
-
-    headers.forEach(
-      th => {
-
-        th.classList.remove(
-          "flash-green-twice"
-        );
-
-        /*
-           Force browser reflow.
-
-           This is important when processing
-           another dataset immediately after
-           the previous one.
-        */
-
-        void th.offsetWidth;
-
-      }
-    );
-
-
-    /*
-       Flash ALL detected headers.
-
-       This gives a clear visual confirmation that
-       the extracted header row was successfully
-       processed.
-
-       Assignee is also included.
-    */
-
-    headers.forEach(
-      th => {
-
-        th.classList.add(
-          "flash-green-twice"
-        );
-
-      }
-    );
-
-
-    /*
-       Remove the class after the animation finishes
-       so the next processing operation can trigger it.
-    */
-
-    setTimeout(
-      function () {
-
-        headers.forEach(
-          th => {
-
-            th.classList.remove(
-              "flash-green-twice"
-            );
-
-          }
-        );
-
-      },
-      1300
-    );
-
-  }
-
-
-  /* ==========================================================
-     DETECTION PANEL
-     ========================================================== */
-
-  function inspectPastedData() {
-
-    const text =
-      pasteData.value;
-
-
-    if (!text.trim()) {
-
-      detectionBox.innerHTML =
-        `
-        Paste sheet data first. The program will
-        automatically inspect the pasted rows and
-        locate the actual header row.
-        `;
-
-      assigneeList.innerHTML =
-        "";
-
-      return;
-
-    }
-
-
-    try {
-
-      const rows =
-        parsePastedText(text);
-
-
-      const headerIndex =
-        detectHeaderRow(rows);
-
-
-      if (
-        headerIndex < 0
-      ) {
-
-        detectionBox.innerHTML =
-          `
-          <span class="detection-warning">
-            Header row not detected yet.
-          </span>
-          `;
 
         return;
 
       }
 
 
-      const headers =
-        rows[headerIndex] || [];
-
-
-      const assigneeIndex =
-        detectAssigneeColumn(
-          headers
-        );
+      const cleanName =
+        name.trim();
 
 
       if (
-        assigneeIndex >= 0
+        !cleanName
       ) {
 
-        const values =
-          uniqueNonEmptyValues(
-            rows
-              .slice(headerIndex + 1)
-              .map(
-                row =>
-                  row[assigneeIndex]
-              )
-          );
-
-
-        detectionBox.innerHTML =
-          `
-          <span class="detection-ok">
-            ✓ Header detected
-          </span>
-          <br>
-          Header row:
-          ${headerIndex + 1}
-          <br>
-          Assignee column:
-          ${columnNumberToLetters(
-            assigneeIndex
-          )}
-          <br>
-          Header:
-          ${escapeHTML(
-            normalizeText(
-              headers[assigneeIndex]
-            )
-          )}
-          `;
-
-
-        renderAssigneeList(
-          values
+        alert(
+          "Folder / Sheet Name cannot be empty."
         );
 
-      } else {
-
-        detectionBox.innerHTML =
-          `
-          <span class="detection-warning">
-            ✓ Header row detected
-          </span>
-          <br>
-          Header row:
-          ${headerIndex + 1}
-          <br>
-          <span class="detection-warning">
-            Assignee header was not found in
-            the pasted headers.
-          </span>
-          `;
-
-
-        assigneeList.innerHTML =
-          "";
+        return;
 
       }
 
-    } catch (error) {
 
-      detectionBox.innerHTML =
-        `
-        <span class="detection-warning">
-          Waiting for valid sheet data...
-        </span>
-        `;
+      if (
+        !projectDatabase[
+          cleanName
+        ]
+      ) {
 
-    }
+        projectDatabase[
+          cleanName
+        ] = {};
 
-  }
-
-
-  function updateDetectionPanel() {
-
-    if (
-      !currentDataset
-    ) {
-
-      return;
-
-    }
+      }
 
 
-    if (
-      detectedAssigneeIndex >= 0
-    ) {
-
-      detectionBox.innerHTML =
-        `
-        <span class="detection-ok">
-          ✓ Assignee detected
-        </span>
-        <br>
-        Header row:
-        ${detectedHeaderIndex + 1}
-        <br>
-        Assignee column:
-        ${columnNumberToLetters(
-          detectedAssigneeIndex
-        )}
-        <br>
-        Header:
-        ${escapeHTML(
-          detectedAssigneeHeader
-        )}
-        `;
-
-
-      renderAssigneeList(
-        currentAssignees
+      localStorage.setItem(
+        "projectDatabase",
+        JSON.stringify(
+          projectDatabase
+        )
       );
 
-    } else {
 
-      detectionBox.innerHTML =
-        `
-        <span class="detection-warning">
-          Header row detected, but no Assignee
-          header was found.
-        </span>
-        `;
+      updateDropdownMenu();
 
-      assigneeList.innerHTML =
-        "";
+
+      const select =
+        document.getElementById(
+          "main-sheet-select"
+        );
+
+
+      select.value =
+        cleanName;
+
+
+      rebuildWorkbookTree();
+
+
+      calculateGlobalMetrics();
 
     }
+  );
 
+
+/* ============================================================
+   FOLDER SELECT
+   ============================================================ */
+
+document
+  .getElementById(
+    "main-sheet-select"
+  )
+  .addEventListener(
+    "change",
+    event => {
+
+      /*
+       * Selecting an existing folder
+       * automatically fills the selected value.
+       */
+
+      if (
+        event.target.value
+      ) {
+
+        event.target.value =
+          event.target.value;
+
+      }
+
+    }
+  );
+
+
+/* ============================================================
+   UPDATE FOLDER DROPDOWN
+   ============================================================ */
+
+function updateDropdownMenu() {
+
+  const select =
+    document.getElementById(
+      "main-sheet-select"
+    );
+
+
+  if (!select) {
+    return;
   }
 
 
-  function renderAssigneeList(
-    values
+  const currentValue =
+    select.value;
+
+
+  select.innerHTML = `
+
+    <option value="">
+      -- Select Existing Folder --
+    </option>
+
+  `;
+
+
+  Object.keys(
+    projectDatabase
+  )
+    .sort(
+      (a, b) =>
+        a.localeCompare(
+          b
+        )
+    )
+    .forEach(
+      mainKey => {
+
+        const option =
+          document.createElement(
+            "option"
+          );
+
+
+        option.value =
+          mainKey;
+
+
+        option.textContent =
+          mainKey;
+
+
+        select.appendChild(
+          option
+        );
+
+      }
+    );
+
+
+  if (
+    currentValue &&
+    projectDatabase[
+      currentValue
+    ]
   ) {
 
-    assigneeList.innerHTML =
-      "";
+    select.value =
+      currentValue;
+
+  }
+
+}
 
 
-    values
-      .slice(0, 100)
-      .forEach(
-        value => {
+/* ============================================================
+   CLOSE LOADER
+   ============================================================ */
 
-          const pill =
-            document.createElement(
-              "div"
+document
+  .getElementById(
+    "btn-close-loader"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      cancelLoader();
+
+    }
+  );
+
+
+/* ============================================================
+   CLOSE ACTIVE WORKSPACE
+   ============================================================ */
+
+document
+  .getElementById(
+    "btn-close-view"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      loaderCancelled = true;
+
+      loaderRunId++;
+
+
+      activeMainSheet = "";
+
+      activeSubSheet = "";
+
+
+      localStorage.removeItem(
+        "activeMainSheet"
+      );
+
+      localStorage.removeItem(
+        "activeSubSheet"
+      );
+
+
+      document
+        .getElementById(
+          "view-navigation-row"
+        )
+        .classList.add(
+          "hidden"
+        );
+
+
+      document
+        .getElementById(
+          "view-title"
+        )
+        .textContent =
+          "Active Workspace View";
+
+
+      document
+        .getElementById(
+          "view-range-indicator"
+        )
+        .textContent = "";
+
+
+      document
+        .getElementById(
+          "grid-output-view"
+        )
+        .innerHTML = `
+
+          <div class="splash-container">
+
+            <div class="splash-text">
+              Paste sheet data stream or select a subfolder node
+              from the workbook index to mount sheet records.
+            </div>
+
+          </div>
+
+        `;
+
+
+      hideLoader();
+
+      calculateGlobalMetrics();
+
+    }
+  );
+
+
+/* ============================================================
+   PROCESS AND STORE DATA
+   ============================================================ */
+
+document
+  .getElementById(
+    "process-entry-btn"
+  )
+  .addEventListener(
+    "click",
+    async () => {
+
+      if (
+        !verifyOnlineStatus()
+      ) {
+
+        return;
+
+      }
+
+
+      const folderSelect =
+        document.getElementById(
+          "main-sheet-select"
+        );
+
+
+      const mainName =
+        folderSelect.value.trim();
+
+
+      const subName =
+        document
+          .getElementById(
+            "sub-sheet-input"
+          )
+          .value
+          .trim();
+
+
+      const rawDataText =
+        document
+          .getElementById(
+            "paste-input"
+          )
+          .value;
+
+
+      if (
+        !mainName
+      ) {
+
+        alert(
+          "Please select or create a Main Folder / Sheet Name."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        !subName
+      ) {
+
+        alert(
+          "Please provide the Sub Route / Route Identifier."
+        );
+
+        return;
+
+      }
+
+
+      if (
+        !rawDataText.trim()
+      ) {
+
+        alert(
+          "Please paste the Google Sheet data first."
+        );
+
+        return;
+
+      }
+
+
+      /*
+       * Re-parse immediately before processing.
+       * This prevents stale Assignee indexes.
+       */
+
+      parsePastedStreamForAssignees();
+
+
+      const button =
+        document.getElementById(
+          "process-entry-btn"
+        );
+
+
+      button.disabled = true;
+
+
+      setActivityUrl(
+        "processing",
+        mainName,
+        subName
+      );
+
+
+      showLoader(
+        "process",
+        mainName,
+        subName
+      );
+
+
+      try {
+
+        /* ======================================================
+           READING
+           ====================================================== */
+
+        setLoaderStage(
+          "reading"
+        );
+
+
+        setActivityUrl(
+          "reading",
+          mainName,
+          subName
+        );
+
+
+        await wait(250);
+
+
+        const lines =
+          rawDataText
+            .split(/\r?\n/)
+            .filter(
+              line =>
+                line.trim().length > 0
             );
 
 
-          pill.className =
-            "assignee-pill";
+        if (
+          !lines.length
+        ) {
 
-
-          pill.textContent =
-            value;
-
-
-          assigneeList.appendChild(
-            pill
+          throw new Error(
+            "No data rows were detected."
           );
 
         }
-      );
-
-  }
 
 
-  /* ==========================================================
-     STATS
-     ========================================================== */
+        /*
+         * Parse actual pasted rows.
+         */
 
-  function updateStats() {
-
-    let allRows = 0;
-
-    let allAssignees =
-      new Set();
-
-    let struck = 0;
-
-
-    Object.values(
-      database.folders
-    ).forEach(
-      folder => {
-
-        Object.values(
-          folder.routes || {}
-        ).forEach(
-          dataset => {
-
-            const rows =
-              dataset.rows || [];
+        const rows =
+          lines.map(
+            line =>
+              line
+                .split("\t")
+                .map(
+                  cell =>
+                    cell.trim()
+                )
+          );
 
 
-            allRows +=
-              rows.length;
+        /*
+         * Use the actual detected header.
+         */
+
+        let headerRowIndex =
+          detectedHeaderRowIdx;
 
 
-            const assigneeIndex =
-              detectAssigneeColumn(
-                dataset.headers || []
-              );
+        let headers =
+          detectedHeaders.slice();
 
+
+        /*
+         * Safety fallback if user
+         * changed the textarea.
+         */
+
+        if (
+          !headers.length ||
+          headerRowIndex < 0
+        ) {
+
+          headerRowIndex = 0;
+
+          headers =
+            rows[0].map(
+              cell =>
+                cell.trim()
+            );
+
+        }
+
+
+        /*
+         * Remove completely empty headers
+         * only if they are trailing.
+         */
+
+        while (
+          headers.length > 1 &&
+          !headers[
+            headers.length - 1
+          ].trim()
+        ) {
+
+          headers.pop();
+
+        }
+
+
+        /*
+         * Make sure every header has
+         * something unique internally.
+         *
+         * Display name remains unchanged.
+         */
+
+        headers =
+          makeUniqueHeaders(
+            headers
+          );
+
+
+        /*
+         * Actual Assignee column.
+         */
+
+        let assigneeIndex =
+          headers.findIndex(
+            isAssigneeHeader
+          );
+
+
+        /*
+         * If original header was duplicated
+         * with internal suffix, try original
+         * text as well.
+         */
+
+        if (
+          assigneeIndex === -1
+        ) {
+
+          assigneeIndex =
+            headers.findIndex(
+              header =>
+                isAssigneeHeader(
+                  stripInternalDuplicateSuffix(
+                    header
+                  )
+                )
+            );
+
+        }
+
+
+        /* ======================================================
+           ANALYSING
+           ====================================================== */
+
+        setLoaderStage(
+          "analysing"
+        );
+
+
+        setActivityUrl(
+          "analysing",
+          mainName,
+          subName
+        );
+
+
+        await wait(250);
+
+
+        const extractedRows =
+          [];
+
+
+        const selected =
+          Array.from(
+            selectedAssignees
+          );
+
+
+        /*
+         * If there are assignees detected
+         * but none are selected, stop.
+         */
+
+        if (
+          assigneeIndex !== -1 &&
+          detectedAssignees.length > 0 &&
+          selected.length === 0
+        ) {
+
+          throw new Error(
+            "Please select at least one Assignee."
+          );
+
+        }
+
+
+        /*
+         * Process every data row.
+         */
+
+        for (
+          let rowIndex =
+            headerRowIndex + 1;
+
+          rowIndex <
+          rows.length;
+
+          rowIndex++
+        ) {
+
+          const cells =
+            rows[rowIndex];
+
+
+          if (
+            !cells.length
+          ) {
+
+            continue;
+
+          }
+
+
+          /*
+           * Make row exactly same width
+           * as the actual pasted header.
+           */
+
+          const aligned =
+            new Array(
+              headers.length
+            ).fill("");
+
+
+          for (
+            let i = 0;
+
+            i < headers.length;
+
+            i++
+          ) {
+
+            aligned[i] =
+              cells[i] !== undefined
+                ? cells[i]
+                : "";
+
+          }
+
+
+          /*
+           * Assignee filter.
+           */
+
+          if (
+            assigneeIndex !== -1
+          ) {
+
+            const rowAssignee =
+              String(
+                aligned[
+                  assigneeIndex
+                ] || ""
+              ).trim();
+
+
+            /*
+             * Ignore completely empty
+             * Assignee rows.
+             */
 
             if (
-              assigneeIndex >= 0
+              !rowAssignee
             ) {
 
-              rows.forEach(
-                row => {
-
-                  const value =
-                    normalizeText(
-                      row[
-                        assigneeIndex
-                      ]
-                    );
-
-
-                  if (value) {
-
-                    allAssignees.add(
-                      value
-                    );
-
-                  }
-
-                }
-              );
+              continue;
 
             }
 
 
+            /*
+             * If specific users were selected,
+             * only keep their rows.
+             */
+
             if (
-              Array.isArray(
-                dataset.struckRows
-              )
+              selected.length > 0
             ) {
 
-              struck +=
-                dataset.struckRows.length;
+              const matches =
+                selected.some(
+                  selectedName =>
+                    selectedName
+                      .trim()
+                      .toLowerCase() ===
+                    rowAssignee
+                      .trim()
+                      .toLowerCase()
+                );
+
+
+              if (!matches) {
+
+                continue;
+
+              }
 
             }
 
           }
-        );
-
-      }
-    );
 
 
-    totalRows.textContent =
-      currentDataset
-        ? currentDataset.rows.length
-        : allRows;
+          /*
+           * Google Sheets strikethrough.
+           */
+
+          const strike =
+            detectHtmlStrikethrough(
+              rowIndex,
+              cells
+            );
 
 
-    totalColumns.textContent =
-      currentDataset
-        ? currentDataset.headers.length
-        : 0;
+          extractedRows.push({
 
+            data:
+              aligned,
 
-    totalAssignees.textContent =
-      currentDataset
-        ? currentDataset.assignees.length
-        : allAssignees.size;
+            isStrikethrough:
+              strike
 
-
-    totalStruck.textContent =
-      currentDataset &&
-      Array.isArray(
-        currentDataset.struckRows
-      )
-        ? currentDataset.struckRows.length
-        : struck;
-
-  }
-
-
-  /* ==========================================================
-     LOADER
-     ========================================================== */
-
-  function showLoader() {
-
-    loaderOverlay.classList.remove(
-      "hidden"
-    );
-
-
-    loaderProgressBar.style.width =
-      "0%";
-
-
-    resetLoaderSteps();
-
-
-    loaderMessage.textContent =
-      "Reading Data";
-
-
-    loaderDetail.textContent =
-      "Preparing...";
-
-  }
-
-
-  function hideLoader() {
-
-    loaderOverlay.classList.add(
-      "hidden"
-    );
-
-  }
-
-
-  function resetLoaderSteps() {
-
-    document
-      .querySelectorAll(
-        ".loader-step"
-      )
-      .forEach(
-        step => {
-
-          step.classList.remove(
-            "active",
-            "done"
-          );
+          });
 
         }
-      );
-
-  }
-
-
-  function activateLoaderStep(
-    name
-  ) {
-
-    resetActiveLoaderSteps();
-
-
-    const step =
-      document.getElementById(
-        `step-${name}`
-      );
-
-
-    if (!step) {
-
-      return;
-
-    }
-
-
-    step.classList.add(
-      "active"
-    );
-
-
-    const order = [
-      "reading",
-      "analysing",
-      "arranging",
-      "storing",
-      "success"
-    ];
-
-
-    const current =
-      order.indexOf(name);
-
-
-    order.forEach(
-      (stepName, index) => {
-
-        const element =
-          document.getElementById(
-            `step-${stepName}`
-          );
 
 
         if (
-          element &&
-          index < current
+          !extractedRows.length
         ) {
 
-          element.classList.remove(
-            "active"
-          );
-
-          element.classList.add(
-            "done"
+          throw new Error(
+            "No valid rows matching the selected Assignee were found."
           );
 
         }
 
-      }
-    );
 
-  }
+        /* ======================================================
+           ARRANGING
+           ====================================================== */
 
-
-  function resetActiveLoaderSteps() {
-
-    document
-      .querySelectorAll(
-        ".loader-step"
-      )
-      .forEach(
-        step => {
-
-          step.classList.remove(
-            "active"
-          );
-
-        }
-      );
-
-  }
-
-
-  function loaderStage(
-    name,
-    title,
-    detail,
-    progress,
-    delay
-  ) {
-
-    return new Promise(
-      resolve => {
-
-        activateLoaderStep(
-          name
+        setLoaderStage(
+          "arranging"
         );
 
 
-        loaderMessage.textContent =
-          title;
-
-
-        loaderDetail.textContent =
-          detail;
-
-
-        loaderProgressBar.style.width =
-          `${progress}%`;
-
-
-        setTimeout(
-          resolve,
-          delay
+        setActivityUrl(
+          "arranging",
+          mainName,
+          subName
         );
 
-      }
-    );
 
-  }
+        await wait(260);
 
 
-  /* ==========================================================
-     CLOSE VIEW
-     ========================================================== */
-
-  function closeCurrentView() {
-
-    currentDataset = null;
-
-    currentFolder = "";
-
-    currentRoute = "";
-
-    detectedHeaderIndex = -1;
-
-    detectedAssigneeIndex = -1;
-
-    detectedAssigneeHeader = "";
-
-    currentAssignees = [];
-
-
-    workspaceTitle.textContent =
-      "No Data Loaded";
-
-
-    workspaceSubtitle.textContent =
-      "Paste data from Google Sheets on the left.";
-
-
-    tableContainer.innerHTML =
-      `
-      <div class="empty-workspace">
-
-        <div class="empty-box">
-
-          <strong>Ready.</strong>
-
-          Paste your Google Sheets data in the
-          left panel, enter the Main Folder / Sheet Name,
-          then click <strong>Process & Store Data</strong>.
-
-        </div>
-
-      </div>
-      `;
-
-
-    updateDetectionPanel();
-
-    updateStats();
-
-    renderFolderTree();
-
-  }
-
-
-  /* ==========================================================
-     EXPORT CSV
-     ========================================================== */
-
-  function exportCurrentCSV() {
-
-    if (
-      !currentDataset
-    ) {
-
-      showToast(
-        "Open or process a dataset first.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    const headers =
-      currentDataset.headers || [];
-
-
-    const rows =
-      currentDataset.rows || [];
-
-
-    const csvRows = [];
-
-
-    csvRows.push(
-      headers.map(
-        csvEscape
-      ).join(",")
-    );
-
-
-    rows.forEach(
-      row => {
-
-        const normalized =
-          [];
-
-
-        for (
-          let i = 0;
-          i < headers.length;
-          i++
+        if (
+          !projectDatabase[
+            mainName
+          ]
         ) {
 
-          normalized.push(
-            row[i] || ""
-          );
+          projectDatabase[
+            mainName
+          ] = {};
 
         }
 
 
-        csvRows.push(
-          normalized
-            .map(csvEscape)
-            .join(",")
+        /*
+         * First time route.
+         */
+
+        if (
+          !projectDatabase[
+            mainName
+          ][subName]
+        ) {
+
+          projectDatabase[
+            mainName
+          ][subName] = {
+
+            headers:
+              headers,
+
+            rows:
+              extractedRows
+
+          };
+
+        } else {
+
+          /*
+           * Existing route.
+           *
+           * Merge headers dynamically.
+           * This allows future pasted sheets
+           * to have changed columns/order.
+           */
+
+          const existing =
+            projectDatabase[
+              mainName
+            ][subName];
+
+
+          const merged =
+            mergeSheetData(
+              existing.headers || [],
+              existing.rows || [],
+              headers,
+              extractedRows
+            );
+
+
+          projectDatabase[
+            mainName
+          ][subName] = merged;
+
+        }
+
+
+        /* ======================================================
+           STORING
+           ====================================================== */
+
+        setLoaderStage(
+          "storing"
         );
 
+
+        setActivityUrl(
+          "storing",
+          mainName,
+          subName
+        );
+
+
+        await wait(260);
+
+
+        localStorage.setItem(
+          "projectDatabase",
+          JSON.stringify(
+            projectDatabase
+          )
+        );
+
+
+        /* ======================================================
+           SUCCESS
+           ====================================================== */
+
+        setLoaderStage(
+          "success"
+        );
+
+
+        setActivityUrl(
+          "success",
+          mainName,
+          subName
+        );
+
+
+        await wait(650);
+
+
+        /*
+         * Update directory.
+         */
+
+        updateDropdownMenu();
+
+        rebuildWorkbookTree();
+
+
+        /*
+         * Render FIRST.
+         */
+
+        activeMainSheet =
+          mainName;
+
+        activeSubSheet =
+          subName;
+
+
+        localStorage.setItem(
+          "activeMainSheet",
+          mainName
+        );
+
+        localStorage.setItem(
+          "activeSubSheet",
+          subName
+        );
+
+
+        document
+          .getElementById(
+            "view-navigation-row"
+          )
+          .classList.remove(
+            "hidden"
+          );
+
+
+        document
+          .getElementById(
+            "view-title"
+          )
+          .innerHTML =
+            `Folder: <b>${escapeHtml(mainName)}</b> ➔ Route: <b>${escapeHtml(subName)}</b>`;
+
+
+        renderSpreadsheetViewGrid(
+          projectDatabase[
+            mainName
+          ][subName]
+        );
+
+
+        calculateGlobalMetrics();
+
+
+        /*
+         * Flash Assignee header twice.
+         */
+
+        flashAssigneeHeader();
+
+
+        /*
+         * Clean input fields.
+         */
+
+        document
+          .getElementById(
+            "paste-input"
+          )
+          .value = "";
+
+
+        document
+          .getElementById(
+            "sub-sheet-input"
+          )
+          .value = "";
+
+
+        clipboardHtmlBuffer = "";
+
+
+        parsedRowsStream = [];
+
+
+        detectedAssignees = [];
+
+
+        selectedAssignees =
+          new Set();
+
+
+        detectedHeaders = [];
+
+
+        detectedAssigneeColIdx =
+          -1;
+
+
+        detectedHeaderRowIdx =
+          -1;
+
+
+        /*
+         * Close Assignee card automatically.
+         */
+
+        document
+          .getElementById(
+            "assignee-selector-box"
+          )
+          .classList.add(
+            "hidden"
+          );
+
+
+        /*
+         * Hide loader only after
+         * actual table is mounted.
+         */
+
+        hideLoader();
+
+
+        setActivityUrl(
+          "viewing",
+          mainName,
+          subName
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          "Processing error:",
+          error
+        );
+
+
+        hideLoader();
+
+
+        setActivityUrl(
+          "error",
+          mainName,
+          subName
+        );
+
+
+        alert(
+          `Unable to process the data: ${
+            error.message || error
+          }`
+        );
+
+      } finally {
+
+        button.disabled = false;
+
       }
-    );
-
-
-    const csv =
-      csvRows.join("\r\n");
-
-
-    const blob =
-      new Blob(
-        [csv],
-        {
-          type:
-            "text/csv;charset=utf-8;"
-        }
-      );
-
-
-    const url =
-      URL.createObjectURL(
-        blob
-      );
-
-
-    const anchor =
-      document.createElement(
-        "a"
-      );
-
-
-    anchor.href =
-      url;
-
-
-    anchor.download =
-      sanitizeFilename(
-        currentFolder +
-        "_" +
-        (
-          currentRoute ||
-          "data"
-        ) +
-        ".csv"
-      );
-
-
-    document.body.appendChild(
-      anchor
-    );
-
-
-    anchor.click();
-
-
-    anchor.remove();
-
-
-    URL.revokeObjectURL(
-      url
-    );
-
-  }
-
-
-  function csvEscape(value) {
-
-    const text =
-      String(
-        value === undefined ||
-        value === null
-          ? ""
-          : value
-      );
-
-
-    if (
-      /[",\r\n]/.test(text)
-    ) {
-
-      return `"${text.replace(
-        /"/g,
-        '""'
-      )}"`;
 
     }
+  );
 
 
-    return text;
+/* ============================================================
+   MAKE UNIQUE INTERNAL HEADERS
+   ============================================================ */
 
-  }
+function makeUniqueHeaders(
+  headers
+) {
+
+  const used =
+    new Map();
 
 
-  /* ==========================================================
-     CLEAR DATABASE
-     ========================================================== */
+  return headers.map(
+    original => {
 
-  function clearDatabase() {
+      const clean =
+        String(
+          original ?? ""
+        ).trim();
 
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete all locally stored sheet data?"
+
+      if (
+        !clean
+      ) {
+
+        const emptyCount =
+          used.get(
+            "__EMPTY__"
+          ) || 0;
+
+
+        used.set(
+          "__EMPTY__",
+          emptyCount + 1
+        );
+
+
+        return `Column ${emptyCount + 1}`;
+
+      }
+
+
+      const key =
+        normalizeHeader(
+          clean
+        );
+
+
+      const count =
+        used.get(
+          key
+        ) || 0;
+
+
+      used.set(
+        key,
+        count + 1
       );
 
 
-    if (!confirmed) {
+      if (
+        count === 0
+      ) {
 
-      return;
+        return clean;
 
-    }
-
-
-    database = {
-      folders: {}
-    };
-
-
-    saveDatabase();
-
-
-    closeCurrentView();
-
-
-    renderFolderTree();
-
-
-    showToast(
-      "Local database cleared.",
-      "success"
-    );
-
-  }
-
-
-  /* ==========================================================
-     THEME
-     ========================================================== */
-
-  function applySavedTheme() {
-
-    const saved =
-      localStorage.getItem(
-        THEME_KEY
-      );
-
-
-    if (
-      saved === "light"
-    ) {
-
-      document.body.style.background =
-        "#f5f5f5";
+      }
 
 
       /*
-         Keep original dark interface by default.
-         The light mode button is intentionally
-         lightweight so the original design is not
-         changed during normal use.
-      */
+       * Internal duplicate marker.
+       * It is removed when displaying/exporting.
+       */
+
+      return `${clean}_dup${count}`;
 
     }
+  );
 
-  }
-
-
-  function toggleTheme() {
-
-    const current =
-      document.body.dataset.theme ||
-      "dark";
+}
 
 
-    if (
-      current === "dark"
-    ) {
+/* ============================================================
+   STRIP INTERNAL DUPLICATE SUFFIX
+   ============================================================ */
 
-      document.body.dataset.theme =
-        "light";
+function stripInternalDuplicateSuffix(
+  header
+) {
 
-      applyLightTheme();
+  return String(
+    header ?? ""
+  ).replace(
+    /_dup\d+$/i,
+    ""
+  );
 
-      themeButton.textContent =
-        "◐ Light Mode";
-
-      localStorage.setItem(
-        THEME_KEY,
-        "light"
-      );
-
-    } else {
-
-      document.body.dataset.theme =
-        "dark";
-
-      applyDarkTheme();
-
-      themeButton.textContent =
-        "◑ Dark Mode";
-
-      localStorage.setItem(
-        THEME_KEY,
-        "dark"
-      );
-
-    }
-
-  }
+}
 
 
-  function applyLightTheme() {
+/* ============================================================
+   HEADER DISPLAY NAME
+   ============================================================ */
 
-    document.documentElement.style.setProperty(
-      "--bg",
-      "#f5f5f7"
-    );
+function displayHeaderName(
+  header
+) {
 
-    document.documentElement.style.setProperty(
-      "--panel",
-      "#ffffff"
-    );
+  return stripInternalDuplicateSuffix(
+    header
+  );
 
-    document.documentElement.style.setProperty(
-      "--panel2",
-      "#f8f8fa"
-    );
-
-    document.documentElement.style.setProperty(
-      "--text",
-      "#18181b"
-    );
-
-    document.documentElement.style.setProperty(
-      "--muted",
-      "#71717a"
-    );
-
-  }
+}
 
 
-  function applyDarkTheme() {
+/* ============================================================
+   HTML STRIKETHROUGH DETECTION
+   ============================================================ */
 
-    document.documentElement.style.setProperty(
-      "--bg",
-      "#0f0f11"
-    );
+function detectHtmlStrikethrough(
+  rowIndex,
+  cells
+) {
 
-    document.documentElement.style.setProperty(
-      "--panel",
-      "#121214"
-    );
-
-    document.documentElement.style.setProperty(
-      "--panel2",
-      "#18181b"
-    );
-
-    document.documentElement.style.setProperty(
-      "--text",
-      "#f5f5f7"
-    );
-
-    document.documentElement.style.setProperty(
-      "--muted",
-      "#9b9ba3"
-    );
-
-  }
-
-
-  /* ==========================================================
-     UNIQUE VALUES
-     ========================================================== */
-
-  function uniqueNonEmptyValues(
-    values
+  if (
+    !clipboardHtmlBuffer
   ) {
 
-    const set =
-      new Set();
+    return false;
+
+  }
 
 
-    (values || []).forEach(
-      value => {
+  try {
 
-        const cleaned =
-          normalizeText(value);
+    const parser =
+      new DOMParser();
+
+
+    const doc =
+      parser.parseFromString(
+        clipboardHtmlBuffer,
+        "text/html"
+      );
+
+
+    const htmlRows =
+      Array.from(
+        doc.querySelectorAll(
+          "tr"
+        )
+      );
+
+
+    /*
+     * Google Sheets HTML normally
+     * follows the same row order.
+     *
+     * Try direct index first.
+     */
+
+    let tr =
+      htmlRows[
+        rowIndex
+      ];
+
+
+    /*
+     * Fallback:
+     * search for first cell text.
+     */
+
+    if (
+      !tr &&
+      cells.length
+    ) {
+
+      const firstValue =
+        String(
+          cells[0] || ""
+        );
+
+
+      if (
+        firstValue
+      ) {
+
+        tr =
+          htmlRows.find(
+            element =>
+              element.textContent
+                .includes(
+                  firstValue
+                )
+          );
+
+      }
+
+    }
+
+
+    if (!tr) {
+
+      return false;
+
+    }
+
+
+    const style =
+      tr.getAttribute(
+        "style"
+      ) || "";
+
+
+    const html =
+      tr.innerHTML
+        .toLowerCase();
+
+
+    return (
+      style
+        .toLowerCase()
+        .includes(
+          "line-through"
+        ) ||
+
+      html.includes(
+        "line-through"
+      ) ||
+
+      html.includes(
+        "<strike"
+      ) ||
+
+      html.includes(
+        "<del"
+      )
+    );
+
+  } catch (error) {
+
+    console.warn(
+      "Strikethrough detection failed:",
+      error
+    );
+
+    return false;
+
+  }
+
+}
+
+
+/* ============================================================
+   MERGE EXISTING + NEW SHEET DATA
+   ============================================================ */
+
+function mergeSheetData(
+  oldHeaders,
+  oldRows,
+  newHeaders,
+  newRows
+) {
+
+  /*
+   * Create stable header keys based on
+   * normalized name + occurrence number.
+   */
+
+  const oldKeys =
+    createHeaderKeys(
+      oldHeaders
+    );
+
+
+  const newKeys =
+    createHeaderKeys(
+      newHeaders
+    );
+
+
+  const mergedHeaders = [];
+
+  const mergedKeys = [];
+
+
+  /*
+   * Keep old columns first.
+   */
+
+  oldHeaders.forEach(
+    (header, index) => {
+
+      const key =
+        oldKeys[index];
+
+
+      if (
+        !mergedKeys.includes(
+          key
+        )
+      ) {
+
+        mergedKeys.push(
+          key
+        );
+
+        mergedHeaders.push(
+          header
+        );
+
+      }
+
+    }
+  );
+
+
+  /*
+   * Add newly pasted columns.
+   */
+
+  newHeaders.forEach(
+    (header, index) => {
+
+      const key =
+        newKeys[index];
+
+
+      if (
+        !mergedKeys.includes(
+          key
+        )
+      ) {
+
+        mergedKeys.push(
+          key
+        );
+
+        mergedHeaders.push(
+          header
+        );
+
+      }
+
+    }
+  );
+
+
+  /*
+   * Convert old rows.
+   */
+
+  const finalRows = [];
+
+
+  oldRows.forEach(
+    rowObject => {
+
+      const oldCells =
+        Array.isArray(
+          rowObject
+        )
+          ? rowObject
+          : rowObject.data;
+
+
+      const output =
+        new Array(
+          mergedHeaders.length
+        ).fill("");
+
+
+      oldKeys.forEach(
+        (key, index) => {
+
+          const target =
+            mergedKeys.indexOf(
+              key
+            );
+
+
+          if (
+            target !== -1
+          ) {
+
+            output[target] =
+              oldCells[index] ??
+              "";
+
+          }
+
+        }
+      );
+
+
+      finalRows.push({
+
+        data:
+          output,
+
+        isStrikethrough:
+          !Array.isArray(
+            rowObject
+          ) &&
+          rowObject.isStrikethrough === true
+
+      });
+
+    }
+  );
+
+
+  /*
+   * Convert new rows.
+   */
+
+  newRows.forEach(
+    rowObject => {
+
+      const newCells =
+        Array.isArray(
+          rowObject
+        )
+          ? rowObject
+          : rowObject.data;
+
+
+      const output =
+        new Array(
+          mergedHeaders.length
+        ).fill("");
+
+
+      newKeys.forEach(
+        (key, index) => {
+
+          const target =
+            mergedKeys.indexOf(
+              key
+            );
+
+
+          if (
+            target !== -1
+          ) {
+
+            output[target] =
+              newCells[index] ??
+              "";
+
+          }
+
+        }
+      );
+
+
+      finalRows.push({
+
+        data:
+          output,
+
+        isStrikethrough:
+          !Array.isArray(
+            rowObject
+          ) &&
+          rowObject.isStrikethrough === true
+
+      });
+
+    }
+  );
+
+
+  return {
+
+    headers:
+      mergedHeaders,
+
+    rows:
+      finalRows
+
+  };
+
+}
+
+
+/* ============================================================
+   CREATE HEADER KEYS
+   ============================================================ */
+
+function createHeaderKeys(
+  headers
+) {
+
+  const counts =
+    new Map();
+
+
+  return headers.map(
+    header => {
+
+      const normalized =
+        normalizeHeader(
+          displayHeaderName(
+            header
+          )
+        );
+
+
+      const current =
+        counts.get(
+          normalized
+        ) || 0;
+
+
+      counts.set(
+        normalized,
+        current + 1
+      );
+
+
+      return `${normalized}::${current}`;
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   FLASH ASSIGNEE HEADER TWICE
+   ============================================================ */
+
+function flashAssigneeHeader() {
+
+  setTimeout(
+    () => {
+
+      const header =
+        document.querySelector(
+          "th[data-assignee-header='true']"
+        );
+
+
+      if (!header) {
+
+        return;
+
+      }
+
+
+      header.classList.remove(
+        "header-success-flash"
+      );
+
+
+      /*
+       * Force animation restart.
+       */
+
+      void header.offsetWidth;
+
+
+      header.classList.add(
+        "header-success-flash"
+      );
+
+
+      setTimeout(
+        () => {
+
+          header.classList.remove(
+            "header-success-flash"
+          );
+
+        },
+
+        1500
+      );
+
+    },
+
+    50
+  );
+
+}
+
+
+/* ============================================================
+   BUILD WORKBOOK TREE
+   ============================================================ */
+
+function rebuildWorkbookTree() {
+
+  const container =
+    document.getElementById(
+      "workbook-tree-container"
+    );
+
+
+  container.innerHTML = "";
+
+
+  const workbooks =
+    Object.keys(
+      projectDatabase
+    );
+
+
+  if (
+    workbooks.length === 0
+  ) {
+
+    container.innerHTML = `
+
+      <div
+        style="
+          padding:10px;
+          color:var(--text-muted);
+        "
+      >
+        No datasets loaded.
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  workbooks
+    .sort(
+      (a, b) =>
+        a.localeCompare(
+          b
+        )
+    )
+    .forEach(
+      mainKey => {
+
+        const subMap =
+          projectDatabase[
+            mainKey
+          ] || {};
+
+
+        const subList =
+          Object.keys(
+            subMap
+          );
+
+
+        let sumTotal = 0;
+
+
+        subList.forEach(
+          subKey => {
+
+            sumTotal +=
+              (
+                subMap[
+                  subKey
+                ].rows || []
+              ).length;
+
+          }
+        );
+
+
+        const node =
+          document.createElement(
+            "div"
+          );
+
+
+        node.className =
+          "tree-node";
+
+
+        node.innerHTML = `
+
+          <div class="tree-header">
+
+            <span>
+              📂 ${escapeHtml(mainKey)}
+            </span>
+
+            <span class="count-badge">
+              ${sumTotal} rows
+            </span>
+
+          </div>
+
+          <div class="tree-children"></div>
+
+        `;
+
+
+        const childrenContainer =
+          node.querySelector(
+            ".tree-children"
+          );
 
 
         if (
-          cleaned
+          subList.length === 0
         ) {
 
-          set.add(
-            cleaned
-          );
+          childrenContainer.innerHTML = `
+
+            <div
+              style="
+                padding:6px;
+                color:var(--text-muted);
+                font-size:10px;
+              "
+            >
+              Empty folder
+            </div>
+
+          `;
 
         }
+
+
+        subList.forEach(
+          subKey => {
+
+            const route =
+              subMap[
+                subKey
+              ];
+
+
+            const rowVolume =
+              (
+                route.rows || []
+              ).length;
+
+
+            const strikeCount =
+              (
+                route.rows || []
+              ).filter(
+                row =>
+                  row.isStrikethrough
+              ).length;
+
+
+            const item =
+              document.createElement(
+                "div"
+              );
+
+
+            item.className =
+              `tree-item ${
+                activeMainSheet === mainKey &&
+                activeSubSheet === subKey
+                  ? "active"
+                  : ""
+              }`;
+
+
+            item.innerHTML = `
+
+              <span>
+                📄 ${escapeHtml(subKey)}
+              </span>
+
+              <div class="tree-item-meta">
+
+                ${
+                  strikeCount > 0
+                    ? `
+                      <span
+                        class="count-badge"
+                        style="
+                          background:rgba(217,48,37,0.15);
+                          color:var(--danger);
+                        "
+                      >
+                        ☠ ${strikeCount}
+                      </span>
+                    `
+                    : ""
+                }
+
+                <span class="count-badge">
+                  ${rowVolume}
+                </span>
+
+                <button
+                  class="btn-delete-node"
+                  data-main="${escapeHtml(mainKey)}"
+                  data-sub="${escapeHtml(subKey)}"
+                  type="button"
+                >
+                  ✕
+                </button>
+
+              </div>
+
+            `;
+
+
+            item.addEventListener(
+              "click",
+              () => {
+
+                switchViewContext(
+                  mainKey,
+                  subKey
+                );
+
+              }
+            );
+
+
+            const deleteButton =
+              item.querySelector(
+                ".btn-delete-node"
+              );
+
+
+            deleteButton.addEventListener(
+              "click",
+              event => {
+
+                event.stopPropagation();
+
+
+                const mainTarget =
+                  event.currentTarget
+                    .getAttribute(
+                      "data-main"
+                    );
+
+
+                const subTarget =
+                  event.currentTarget
+                    .getAttribute(
+                      "data-sub"
+                    );
+
+
+                if (
+                  confirm(
+                    `Delete route [${subTarget}] from [${mainTarget}]?`
+                  )
+                ) {
+
+                  delete projectDatabase[
+                    mainTarget
+                  ][
+                    subTarget
+                  ];
+
+
+                  if (
+                    Object.keys(
+                      projectDatabase[
+                        mainTarget
+                      ]
+                    ).length === 0
+                  ) {
+
+                    delete projectDatabase[
+                      mainTarget
+                    ];
+
+                  }
+
+
+                  localStorage.setItem(
+                    "projectDatabase",
+                    JSON.stringify(
+                      projectDatabase
+                    )
+                  );
+
+
+                  if (
+                    activeMainSheet ===
+                      mainTarget &&
+                    activeSubSheet ===
+                      subTarget
+                  ) {
+
+                    document
+                      .getElementById(
+                        "btn-close-view"
+                      )
+                      .click();
+
+                  }
+
+
+                  updateDropdownMenu();
+
+                  rebuildWorkbookTree();
+
+                  calculateGlobalMetrics();
+
+                }
+
+              }
+            );
+
+
+            childrenContainer.appendChild(
+              item
+            );
+
+          }
+        );
+
+
+        container.appendChild(
+          node
+        );
 
       }
     );
 
+}
 
-    return Array.from(
-      set
-    );
+
+/* ============================================================
+   OPEN ROUTE
+   ============================================================ */
+
+async function switchViewContext(
+  mainKey,
+  subKey
+) {
+
+  if (
+    !projectDatabase[
+      mainKey
+    ] ||
+    !projectDatabase[
+      mainKey
+    ][subKey]
+  ) {
+
+    return;
 
   }
 
 
-  /* ==========================================================
-     COLUMN LETTER
-     ========================================================== */
+  loaderCancelled = true;
 
-  function columnNumberToLetters(
-    zeroBasedIndex
+  loaderRunId++;
+
+
+  activeMainSheet =
+    mainKey;
+
+  activeSubSheet =
+    subKey;
+
+
+  localStorage.setItem(
+    "activeMainSheet",
+    mainKey
+  );
+
+  localStorage.setItem(
+    "activeSubSheet",
+    subKey
+  );
+
+
+  document
+    .getElementById(
+      "view-navigation-row"
+    )
+    .classList.remove(
+      "hidden"
+    );
+
+
+  document
+    .getElementById(
+      "view-title"
+    )
+    .innerHTML =
+      `Folder: <b>${escapeHtml(mainKey)}</b> ➔ Route: <b>${escapeHtml(subKey)}</b>`;
+
+
+  const completed =
+    await runActivityLoader(
+      "route",
+      mainKey,
+      subKey
+    );
+
+
+  if (!completed) {
+
+    return;
+
+  }
+
+
+  const routeData =
+    projectDatabase[
+      mainKey
+    ][subKey];
+
+
+  renderSpreadsheetViewGrid(
+    routeData
+  );
+
+
+  calculateGlobalMetrics();
+
+  rebuildWorkbookTree();
+
+
+  setActivityUrl(
+    "viewing",
+    mainKey,
+    subKey
+  );
+
+
+  hideLoader();
+
+}
+
+
+/* ============================================================
+   RENDER SPREADSHEET
+   ============================================================ */
+
+function renderSpreadsheetViewGrid(
+  sheetObject
+) {
+
+  const display =
+    document.getElementById(
+      "grid-output-view"
+    );
+
+
+  const rangeIndicator =
+    document.getElementById(
+      "view-range-indicator"
+    );
+
+
+  if (
+    !sheetObject
   ) {
 
-    let n =
-      Number(
-        zeroBasedIndex
-      ) + 1;
+    display.innerHTML = `
+
+      <div style="padding:12px;color:var(--text-dark);">
+        No workspace data found.
+      </div>
+
+    `;
+
+    rangeIndicator.textContent = "";
+
+    return;
+
+  }
 
 
-    if (
-      !Number.isFinite(n) ||
-      n < 1
-    ) {
+  const headers =
+    sheetObject.headers || [];
 
-      return "";
+
+  const rows =
+    sheetObject.rows || [];
+
+
+  if (
+    !rows.length
+  ) {
+
+    display.innerHTML = `
+
+      <div style="padding:12px;color:var(--text-dark);">
+        No row data present in this route.
+      </div>
+
+    `;
+
+    rangeIndicator.textContent = "";
+
+    return;
+
+  }
+
+
+  rangeIndicator.textContent =
+    `Displaying total ${rows.length} record entries.`;
+
+
+  let tableHtml =
+    `<table><thead><tr>`;
+
+
+  headers.forEach(
+    header => {
+
+      const cleanHeader =
+        displayHeaderName(
+          header
+        );
+
+
+      const isAssignee =
+        isAssigneeHeader(
+          cleanHeader
+        );
+
+
+      tableHtml += `
+
+        <th
+          title="${escapeHtml(cleanHeader)}"
+          ${
+            isAssignee
+              ? 'data-assignee-header="true"'
+              : ""
+          }
+        >
+          ${escapeHtml(cleanHeader)}
+        </th>
+
+      `;
 
     }
+  );
 
 
-    let result = "";
+  tableHtml +=
+    `</tr></thead><tbody>`;
 
 
-    while (
-      n > 0
-    ) {
+  rows.forEach(
+    rowObject => {
 
-      const remainder =
-        (n - 1) % 26;
-
-
-      result =
-        String.fromCharCode(
-          65 + remainder
-        ) +
-        result;
+      const rowCells =
+        Array.isArray(
+          rowObject
+        )
+          ? rowObject
+          : (
+              rowObject.data || []
+            );
 
 
-      n =
-        Math.floor(
-          (n - 1) / 26
+      const isStriked =
+        !Array.isArray(
+          rowObject
+        ) &&
+        rowObject.isStrikethrough === true;
+
+
+      tableHtml += `
+
+        <tr
+          class="${
+            isStriked
+              ? "row-strikethrough"
+              : ""
+          }"
+        >
+
+      `;
+
+
+      for (
+        let index = 0;
+
+        index <
+        headers.length;
+
+        index++
+      ) {
+
+        const value =
+          rowCells[index] !== undefined
+            ? rowCells[index]
+            : "";
+
+
+        tableHtml += `
+
+          <td
+            title="${escapeHtml(value)}"
+          >
+            ${escapeHtml(value)}
+          </td>
+
+        `;
+
+      }
+
+
+      tableHtml +=
+        `</tr>`;
+
+    }
+  );
+
+
+  tableHtml +=
+    `</tbody></table>`;
+
+
+  display.innerHTML =
+    tableHtml;
+
+}
+
+
+/* ============================================================
+   OPEN GOOGLE SHEETS
+   ============================================================ */
+
+document
+  .getElementById(
+    "btn-create-gsheet"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      if (
+        !verifyOnlineStatus()
+      ) {
+
+        return;
+
+      }
+
+
+      if (
+        !activeMainSheet ||
+        !activeSubSheet ||
+        !projectDatabase[
+          activeMainSheet
+        ] ||
+        !projectDatabase[
+          activeMainSheet
+        ][activeSubSheet]
+      ) {
+
+        return;
+
+      }
+
+
+      const workbook =
+        projectDatabase[
+          activeMainSheet
+        ][activeSubSheet];
+
+
+      const headers =
+        workbook.headers || [];
+
+
+      const headerText =
+        headers
+          .map(
+            header =>
+              displayHeaderName(
+                header
+              )
+          )
+          .join("\t");
+
+
+      const rows =
+        (workbook.rows || [])
+          .map(
+            rowObject => {
+
+              const cells =
+                Array.isArray(
+                  rowObject
+                )
+                  ? rowObject
+                  : (
+                      rowObject.data ||
+                      []
+                    );
+
+
+              return headers
+                .map(
+                  (
+                    header,
+                    index
+                  ) =>
+                    cells[index] !==
+                      undefined
+                      ? cells[index]
+                      : ""
+                )
+                .join("\t");
+
+            }
+          );
+
+
+      const fullText =
+        [
+          headerText,
+          ...rows
+        ].join("\n");
+
+
+      navigator.clipboard
+        .writeText(
+          fullText
+        )
+        .then(
+          () => {
+
+            alert(
+              "Formatted data copied to clipboard! Opening Google Sheets... Press Ctrl+V to paste."
+            );
+
+
+            window.open(
+              "https://sheets.new",
+              "_blank"
+            );
+
+          }
+        )
+        .catch(
+          error => {
+
+            console.error(
+              "Clipboard error:",
+              error
+            );
+
+
+            alert(
+              "Unable to copy automatically. Please allow clipboard access."
+            );
+
+          }
         );
 
     }
+  );
 
 
-    return result;
+/* ============================================================
+   EXPORT CSV
+   ============================================================ */
 
-  }
+document
+  .getElementById(
+    "btn-export-csv"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      if (
+        !verifyOnlineStatus()
+      ) {
+
+        return;
+
+      }
 
 
-  /* ==========================================================
-     ID
-     ========================================================== */
+      if (
+        !activeMainSheet ||
+        !activeSubSheet ||
+        !projectDatabase[
+          activeMainSheet
+        ] ||
+        !projectDatabase[
+          activeMainSheet
+        ][activeSubSheet]
+      ) {
 
-  function createId() {
+        return;
 
-    return (
-      Date.now().toString(36) +
-      "_" +
-      Math.random()
-        .toString(36)
-        .slice(2, 10)
+      }
+
+
+      const workbook =
+        projectDatabase[
+          activeMainSheet
+        ][activeSubSheet];
+
+
+      const sanitize =
+        value => {
+
+          if (
+            value === null ||
+            value === undefined
+          ) {
+
+            return '""';
+
+          }
+
+
+          return `"${String(value)
+            .replace(
+              /"/g,
+              '""'
+            )}"`;
+
+        };
+
+
+      const headers =
+        workbook.headers || [];
+
+
+      const headerRow =
+        headers
+          .map(
+            header =>
+              sanitize(
+                displayHeaderName(
+                  header
+                )
+              )
+          )
+          .join(",");
+
+
+      const dataRows =
+        (workbook.rows || [])
+          .map(
+            rowObject => {
+
+              const cells =
+                Array.isArray(
+                  rowObject
+                )
+                  ? rowObject
+                  : (
+                      rowObject.data ||
+                      []
+                    );
+
+
+              return headers
+                .map(
+                  (
+                    header,
+                    index
+                  ) =>
+                    sanitize(
+                      cells[index] !==
+                        undefined
+                        ? cells[index]
+                        : ""
+                    )
+                )
+                .join(",");
+
+            }
+          );
+
+
+      const csv =
+        [
+          headerRow,
+          ...dataRows
+        ].join("\n");
+
+
+      const blob =
+        new Blob(
+          [csv],
+          {
+            type:
+              "text/csv;charset=utf-8;"
+          }
+        );
+
+
+      const link =
+        document.createElement(
+          "a"
+        );
+
+
+      link.href =
+        URL.createObjectURL(
+          blob
+        );
+
+
+      link.download =
+        `${activeMainSheet}_${activeSubSheet}.csv`
+          .replace(
+            /[^a-z0-9_.-]/gi,
+            "_"
+          )
+          .toLowerCase();
+
+
+      document.body.appendChild(
+        link
+      );
+
+
+      link.click();
+
+
+      document.body.removeChild(
+        link
+      );
+
+
+      setTimeout(
+        () =>
+          URL.revokeObjectURL(
+            link.href
+          ),
+        1000
+      );
+
+    }
+  );
+
+
+/* ============================================================
+   GLOBAL METRICS
+   ============================================================ */
+
+function calculateGlobalMetrics() {
+
+  let grandTotal = 0;
+
+  let mainTotal = 0;
+
+  let subTotal = 0;
+
+  let strikeTotal = 0;
+
+
+  Object.keys(
+    projectDatabase
+  ).forEach(
+    mainKey => {
+
+      Object.keys(
+        projectDatabase[
+          mainKey
+        ] || {}
+      ).forEach(
+        subKey => {
+
+          const rows =
+            projectDatabase[
+              mainKey
+            ][subKey].rows || [];
+
+
+          grandTotal +=
+            rows.length;
+
+
+          if (
+            mainKey ===
+            activeMainSheet
+          ) {
+
+            mainTotal +=
+              rows.length;
+
+          }
+
+
+          if (
+            mainKey ===
+              activeMainSheet &&
+            subKey ===
+              activeSubSheet
+          ) {
+
+            subTotal =
+              rows.length;
+
+          }
+
+
+          rows.forEach(
+            row => {
+
+              if (
+                row &&
+                row.isStrikethrough
+              ) {
+
+                strikeTotal++;
+
+              }
+
+            }
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+  const grandElement =
+    document.getElementById(
+      "stat-grand-total"
     );
 
-  }
 
-
-  /* ==========================================================
-     ESCAPE HTML
-     ========================================================== */
-
-  function escapeHTML(
-    value
-  ) {
-
-    return String(
-      value === undefined ||
-      value === null
-        ? ""
-        : value
-    )
-      .replace(
-        /&/g,
-        "&amp;"
-      )
-      .replace(
-        /</g,
-        "&lt;"
-      )
-      .replace(
-        />/g,
-        "&gt;"
-      )
-      .replace(
-        /"/g,
-        "&quot;"
-      )
-      .replace(
-        /'/g,
-        "&#039;"
-      );
-
-  }
-
-
-  function escapeAttribute(
-    value
-  ) {
-
-    return escapeHTML(
-      value
+  const mainElement =
+    document.getElementById(
+      "stat-main-total"
     );
 
-  }
+
+  const subElement =
+    document.getElementById(
+      "stat-sub-total"
+    );
 
 
-  /* ==========================================================
-     FILENAME
-     ========================================================== */
+  const strikeElement =
+    document.getElementById(
+      "stat-strike-total"
+    );
 
-  function sanitizeFilename(
-    value
-  ) {
 
-    return String(
-      value || "export"
-    )
-      .replace(
-        /[<>:"/\\|?*]+/g,
-        "_"
-      )
-      .replace(
-        /\s+/g,
-        "_"
-      );
+  if (grandElement) {
+
+    grandElement.textContent =
+      `${grandTotal} Rows`;
 
   }
 
 
-  /* ==========================================================
-     TOAST
-     ========================================================== */
+  if (mainElement) {
 
-  function showToast(
-    message,
-    type
-  ) {
+    mainElement.textContent =
+      `${mainTotal} Rows`;
 
-    const container =
-      document.getElementById(
-        "toast-container"
+  }
+
+
+  if (subElement) {
+
+    subElement.textContent =
+      `${subTotal} Rows`;
+
+  }
+
+
+  if (strikeElement) {
+
+    strikeElement.textContent =
+      `${strikeTotal} Rows`;
+
+  }
+
+}
+
+
+/* ============================================================
+   WIPE STORAGE
+   ============================================================ */
+
+document
+  .getElementById(
+    "clear-db-btn"
+  )
+  .addEventListener(
+    "click",
+    () => {
+
+      if (
+        !confirm(
+          "Permanently wipe local workspace database memory?"
+        )
+      ) {
+
+        return;
+
+      }
+
+
+      loaderCancelled = true;
+
+      loaderRunId++;
+
+
+      localStorage.removeItem(
+        "projectDatabase"
       );
 
 
-    const toast =
-      document.createElement(
-        "div"
+      localStorage.removeItem(
+        "activeMainSheet"
       );
 
 
-    toast.className =
-      "toast " +
-      (
-        type ||
+      localStorage.removeItem(
+        "activeSubSheet"
+      );
+
+
+      projectDatabase = {};
+
+      activeMainSheet = "";
+
+      activeSubSheet = "";
+
+
+      hideLoader();
+
+
+      document
+        .getElementById(
+          "view-navigation-row"
+        )
+        .classList.add(
+          "hidden"
+        );
+
+
+      document
+        .getElementById(
+          "view-title"
+        )
+        .textContent =
+          "Active Workspace View";
+
+
+      document
+        .getElementById(
+          "view-range-indicator"
+        )
+        .textContent = "";
+
+
+      document
+        .getElementById(
+          "grid-output-view"
+        )
+        .innerHTML = `
+
+          <div class="splash-container">
+
+            <div class="splash-text">
+              Paste sheet data stream or select a subfolder node
+              from the workbook index to mount sheet records.
+            </div>
+
+          </div>
+
+        `;
+
+
+      document
+        .getElementById(
+          "paste-input"
+        )
+        .value = "";
+
+
+      document
+        .getElementById(
+          "sub-sheet-input"
+        )
+        .value = "";
+
+
+      document
+        .getElementById(
+          "assignee-selector-box"
+        )
+        .classList.add(
+          "hidden"
+        );
+
+
+      clipboardHtmlBuffer = "";
+
+      detectedAssignees = [];
+
+      selectedAssignees =
+        new Set();
+
+
+      updateDropdownMenu();
+
+      rebuildWorkbookTree();
+
+      calculateGlobalMetrics();
+
+      setActivityUrl(
+        "",
+        "",
         ""
       );
 
-
-    toast.textContent =
-      message;
-
-
-    container.appendChild(
-      toast
-    );
-
-
-    setTimeout(
-      function () {
-
-        toast.style.opacity =
-          "0";
-
-        toast.style.transform =
-          "translateY(5px)";
-
-        toast.style.transition =
-          "opacity .2s ease, transform .2s ease";
-
-
-        setTimeout(
-          function () {
-
-            toast.remove();
-
-          },
-          220
-        );
-
-      },
-      3000
-    );
-
-  }
-
-
-  /* ==========================================================
-     DEBOUNCE
-     ========================================================== */
-
-  function debounce(
-    fn,
-    delay
-  ) {
-
-    let timer = null;
-
-
-    return function () {
-
-      clearTimeout(
-        timer
-      );
-
-
-      const args =
-        arguments;
-
-
-      timer =
-        setTimeout(
-          function () {
-
-            fn.apply(
-              null,
-              args
-            );
-
-          },
-          delay
-        );
-
-    };
-
-  }
-
-
-})();
+    }
+  );
