@@ -2157,18 +2157,38 @@ try {
 
 
         for (
-          let rowIndex =
-            headerRowIndex + 1;
+  let rowIndex =
+    headerRowIndex + 1;
 
-          rowIndex <
-          rows.length;
+  rowIndex <
+  rows.length;
 
-          rowIndex++
-        ) {
+  rowIndex++
+) {
 
-          const cells =
-            rows[rowIndex];
+  /*
+   * Keep the browser responsive during
+   * very large imports.
+   *
+   * Every 500 rows we yield back to the
+   * browser so the loader can animate.
+   */
+  if (
+    (rowIndex - headerRowIndex) % 500 === 0
+  ) {
 
+    await new Promise(
+      resolve =>
+        setTimeout(
+          resolve,
+          0
+        )
+    );
+
+  }
+
+  const cells =
+    rows[rowIndex];
 
           if (
             !cells ||
