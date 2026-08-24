@@ -1,558 +1,976 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
   <title>Sheet Task Extractor Pro - Direct Ingest Workspace</title>
 
   <style>
     :root {
-      --bg-main: #f8fafc;
-      --bg-card: #ffffff;
-      --border-color: #cbd5e1;
-      --text-dark: #0f172a;
-      --text-muted: #64748b;
-      --accent: #1a73e8;
-      --accent-hover: #1557b0;
-      --danger: #d93025;
-      --danger-hover: #b0231a;
-      --success: #188038;
-      --success-hover: #13652b;
-      --grid-header-bg: #1a73e8;
-      --grid-header-text: #ffffff;
-      --strikethrough-row-bg: rgba(217, 48, 37, 0.15);
-      --strikethrough-row-text: #d93025;
-      --spacer-col-bg: #000000;
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --panel-2: #f9fafb;
+      --text: #172033;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --border-strong: #d1d5db;
+      --primary: #6d28d9;
+      --primary-light: #ede9fe;
+      --primary-dark: #5b21b6;
+      --success: #16a34a;
+      --success-light: #dcfce7;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+
+      --grid-header-bg: #f3f4f6;
+      --grid-header-text: #374151;
     }
 
     [data-theme="dark"] {
-      --bg-main: #0f172a;
-      --bg-card: #1e293b;
-      --border-color: #475569;
-      --text-dark: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent: #3b82f6;
-      --accent-hover: #60a5fa;
-      --grid-header-bg: #1e40af;
-      --grid-header-text: #ffffff;
-      --strikethrough-row-bg: rgba(239, 68, 68, 0.25);
-      --strikethrough-row-text: #f87171;
-      --spacer-col-bg: #000000;
+      --bg: #09090b;
+      --panel: #111113;
+      --panel-2: #18181b;
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --border: #27272a;
+      --border-strong: #3f3f46;
+      --primary: #8b5cf6;
+      --primary-light: #2e1065;
+      --primary-dark: #a78bfa;
+      --success: #22c55e;
+      --success-light: #052e16;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+
+      --grid-header-bg: #18181b;
+      --grid-header-text: #e4e4e7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: var(--bg-main);
-      color: var(--text-dark);
-      font-size: 12px;
-    }
+      font-family:
+        Inter,
+        Arial,
+        Helvetica,
+        sans-serif;
 
-    .offline-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(15, 23, 42, 0.95);
-      color: #ffffff;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
+      background: var(--bg);
+      color: var(--text);
 
-    .offline-card {
-      background: #1e293b;
-      padding: 32px;
-      border-radius: 8px;
-      border: 1px solid #ef4444;
-      text-align: center;
-      max-width: 400px;
-    }
-
-    .navbar {
-      background: var(--bg-card);
-      padding: 10px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .navbar h1 {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-    }
-
-    .theme-toggle {
-      background: none;
-      border: 1px solid var(--border-color);
-      color: var(--text-dark);
-      padding: 4px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 11px;
-    }
-
-    .main-layout {
-      display: flex;
-      padding: 12px;
-      gap: 12px;
-      box-sizing: border-box;
-      height: calc(100vh - 45px);
-    }
-
-    .sidebar {
-      width: 340px;
-      min-width: 340px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      overflow-y: auto;
-    }
-
-    .content-area {
-      flex: 1;
-      background: var(--bg-card);
-      border-radius: 6px;
-      padding: 12px;
-      border: 1px solid var(--border-color);
-      position: relative;
-      display: flex;
-      flex-direction: column;
       overflow: hidden;
     }
 
-    .card {
-      background: var(--bg-card);
-      border-radius: 6px;
-      padding: 12px;
-      border: 1px solid var(--border-color);
+    button,
+    input,
+    textarea,
+    select {
+      font-family: inherit;
     }
 
-    .card-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-      margin: 0 0 10px 0;
-      font-weight: 700;
-    }
-
-    .form-group {
-      margin-bottom: 10px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    input[type="text"],
-    select,
-    textarea {
-      width: 100%;
-      box-sizing: border-box;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      padding: 6px 8px;
-      font-size: 12px;
-      background-color: var(--bg-card);
-      color: var(--text-dark);
-    }
-
-    textarea {
-      height: 80px;
-      font-family: monospace;
-      resize: vertical;
+    button {
+      cursor: pointer;
     }
 
     .hidden {
       display: none !important;
     }
 
-    button {
-      font-family: inherit;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 500;
-      padding: 8px;
-      cursor: pointer;
-      width: 100%;
-      border: none;
-    }
+    /* =========================================================
+       HEADER
+       ========================================================= */
 
-    .btn-primary {
-      background-color: var(--accent);
-      color: white;
-    }
+    .top-header {
+      height: 64px;
 
-    .btn-primary:hover {
-      background-color: var(--accent-hover);
-    }
-
-    .btn-danger {
-      background-color: transparent;
-      color: var(--danger);
-      margin-top: 6px;
-      padding: 4px;
-      font-size: 11px;
-    }
-
-    .btn-danger:hover {
-      background-color: rgba(217, 48, 37, 0.08);
-    }
-
-    .btn-back {
-      background: transparent;
-      border: 1px solid var(--border-color);
-      color: var(--text-dark);
-      width: auto;
-      padding: 4px 10px;
-      font-size: 11px;
-    }
-
-    .action-controls-row {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
-      gap: 10px;
+      justify-content: space-between;
+
+      padding: 0 20px;
+
+      background: var(--panel);
+
+      border-bottom: 1px solid var(--border);
+
+      position: relative;
+      z-index: 20;
     }
 
-    .export-buttons-group {
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+
+      border-radius: 10px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      background: var(--primary);
+      color: white;
+
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-btn {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+
+      border-radius: 8px;
+
+      padding: 8px 12px;
+
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .header-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* =========================================================
+       MAIN LAYOUT
+       ========================================================= */
+
+    .app-layout {
+      height: calc(100vh - 64px);
+
+      display: grid;
+
+      grid-template-columns:
+        290px
+        minmax(0, 1fr);
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--border);
+
+      background: var(--panel);
+
+      overflow-y: auto;
+
+      padding: 16px;
+    }
+
+    .main-content {
+      min-width: 0;
+
+      display: flex;
+      flex-direction: column;
+
+      overflow: hidden;
+    }
+
+    /* =========================================================
+       SIDEBAR
+       ========================================================= */
+
+    .sidebar-section {
+      margin-bottom: 20px;
+    }
+
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 800;
+
+      letter-spacing: 0.08em;
+
+      color: var(--text-muted);
+
+      margin-bottom: 8px;
+    }
+
+    .folder-input-row {
       display: flex;
       gap: 6px;
     }
 
-    .btn-export-gsheet {
-      background-color: var(--success);
+    .text-input,
+    .select-input,
+    .paste-input {
+      width: 100%;
+
+      border: 1px solid var(--border);
+
+      background: var(--panel-2);
+
+      color: var(--text);
+
+      outline: none;
+
+      border-radius: 8px;
+    }
+
+    .text-input,
+    .select-input {
+      height: 38px;
+
+      padding: 0 10px;
+
+      font-size: 12px;
+    }
+
+    .text-input:focus,
+    .select-input:focus,
+    .paste-input:focus {
+      border-color: var(--primary);
+
+      box-shadow:
+        0 0 0 3px
+        rgba(109, 40, 217, 0.10);
+    }
+
+    .sidebar-button {
+      width: 100%;
+
+      height: 38px;
+
+      border: 0;
+
+      border-radius: 8px;
+
+      background: var(--primary);
+
       color: white;
-      width: auto;
-      padding: 5px 12px;
-      font-size: 11px;
+
+      font-size: 12px;
+      font-weight: 800;
     }
 
-    .btn-export-gsheet:hover {
-      background-color: var(--success-hover);
+    .sidebar-button:hover {
+      background: var(--primary-dark);
     }
 
-    .btn-export-csv {
-      background-color: #475569;
-      color: white;
-      width: auto;
-      padding: 5px 12px;
-      font-size: 11px;
+    .sidebar-button.danger {
+      background: transparent;
+
+      border: 1px solid
+        rgba(220, 38, 38, 0.35);
+
+      color: var(--danger);
     }
 
-    .assignee-container {
-      margin-bottom: 10px;
-      padding: 8px;
-      background: var(--bg-main);
-      border: 1px dashed var(--border-color);
-      border-radius: 4px;
+    .sidebar-button.danger:hover {
+      background:
+        rgba(220, 38, 38, 0.08);
     }
 
-    .assignee-pill-group {
+    /* =========================================================
+       WORKBOOK TREE
+       ========================================================= */
+
+    #workbook-tree-container {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 6px;
-      margin-top: 6px;
-    }
-
-    .assignee-pill {
-      background: var(--bg-card);
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      padding: 4px 10px;
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 600;
-      transition: all 0.2s ease;
-    }
-
-    .assignee-pill:hover,
-    .assignee-pill.selected {
-      background: var(--accent);
-      color: white;
     }
 
     .tree-node {
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      margin-bottom: 8px;
-      background: var(--bg-card);
+      border: 1px solid var(--border);
+
+      border-radius: 9px;
+
+      overflow: hidden;
     }
 
     .tree-header {
+      min-height: 38px;
+
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 6px 10px;
-      background: var(--bg-main);
-      font-weight: 600;
-      font-size: 12px;
-      border-bottom: 1px solid var(--border-color);
+      justify-content: space-between;
+
+      padding: 7px 9px;
+
+      background: var(--panel-2);
+
+      font-size: 11px;
+      font-weight: 800;
     }
 
     .tree-children {
-      padding: 4px;
+      border-top: 1px solid var(--border);
     }
 
     .tree-item {
-      padding: 6px 8px;
-      border-radius: 3px;
-      cursor: pointer;
+      min-height: 38px;
+
+      padding: 7px 8px 7px 15px;
+
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
+
+      gap: 8px;
+
       font-size: 11px;
-      margin-bottom: 2px;
-      color: var(--text-dark);
+
+      border-bottom: 1px solid
+        var(--border);
+
+      cursor: pointer;
     }
 
-    .tree-item:hover,
+    .tree-item:last-child {
+      border-bottom: 0;
+    }
+
+    .tree-item:hover {
+      background: var(--primary-light);
+    }
+
     .tree-item.active {
-      background-color: rgba(26, 115, 232, 0.12);
-      color: var(--accent);
-      font-weight: 600;
+      background: var(--primary-light);
+
+      color: var(--primary);
+
+      font-weight: 800;
     }
 
     .tree-item-meta {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .count-badge {
-      font-size: 10px;
-      background: #e2e8f0;
-      color: #334155;
-      padding: 1px 6px;
-      border-radius: 8px;
-    }
+      display: inline-flex;
 
-    [data-theme="dark"] .count-badge {
-      background: #334155;
-      color: #f8fafc;
+      align-items: center;
+      justify-content: center;
+
+      min-width: 24px;
+
+      padding: 3px 6px;
+
+      border-radius: 999px;
+
+      background: var(--primary-light);
+
+      color: var(--primary);
+
+      font-size: 9px;
+      font-weight: 800;
     }
 
     .btn-delete-node {
+      border: 0;
+
       background: transparent;
-      color: var(--text-muted);
-      padding: 0 4px;
-      width: auto;
-      font-size: 11px;
-    }
 
-    .btn-delete-node:hover {
       color: var(--danger);
+
+      font-size: 12px;
+
+      padding: 2px 4px;
     }
 
-    /* PROFESSIONAL ACTIVITY LOADER */
-    .loader-overlay {
-      position: absolute;
-      inset: 0;
-      background: color-mix(in srgb, var(--bg-card) 96%, transparent);
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
+    /* =========================================================
+       CONTENT
+       ========================================================= */
+
+    .content-scroll {
+      height: 100%;
+
+      overflow: auto;
+
+      padding: 18px;
+    }
+
+    .content-card {
+      background: var(--panel);
+
+      border: 1px solid var(--border);
+
+      border-radius: 12px;
+
+      box-shadow: var(--shadow);
+
+      overflow: hidden;
+    }
+
+    .content-card-header {
+      padding: 16px;
+
+      border-bottom: 1px solid var(--border);
+    }
+
+    .content-card-title {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .content-card-subtitle {
+      font-size: 11px;
+
+      color: var(--text-muted);
+
+      margin-top: 4px;
+    }
+
+    /* =========================================================
+       INPUT WORKSPACE
+       ========================================================= */
+
+    .input-grid {
+      display: grid;
+
+      grid-template-columns:
+        1fr
+        1fr;
+
+      gap: 12px;
+
+      padding: 16px;
+    }
+
+    .field-group {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
+
+      gap: 6px;
     }
 
-    .loader-panel {
-      position: relative;
-      width: min(410px, calc(100% - 36px));
-      padding: 22px 24px;
-      box-sizing: border-box;
-      text-align: center;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      background: var(--bg-card);
-      box-shadow: 0 14px 40px rgba(15, 23, 42, 0.18);
+    .field-group.full {
+      grid-column: 1 / -1;
     }
 
-    .loader-close {
-      position: absolute;
-      top: 10px;
-      right: 12px;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border: 1px solid var(--border-color);
-      border-radius: 50%;
-      background: var(--bg-card);
-      color: var(--text-muted);
-      font-size: 20px;
-      line-height: 24px;
-      cursor: pointer;
-      z-index: 2;
-    }
-
-    .loader-close:hover {
-      color: var(--danger);
-      border-color: var(--danger);
-      background: rgba(217, 48, 37, 0.06);
-    }
-
-    .loader-orbit {
-      width: 52px;
-      height: 52px;
-      margin: 0 auto 12px;
-      border-radius: 50%;
-      border: 3px solid var(--border-color);
-      border-top-color: var(--accent);
-      border-right-color: var(--accent);
-      animation: loaderSpin 0.72s linear infinite;
-      position: relative;
-    }
-
-    .loader-orbit:after {
-      content: "";
-      position: absolute;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 12px rgba(26, 115, 232, 0.45);
-    }
-
-    .loader-success {
-      display: none;
-      width: 52px;
-      height: 52px;
-      margin: 0 auto 12px;
-      border-radius: 50%;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid var(--success);
-      color: var(--success);
-      font-size: 27px;
-      font-weight: 700;
-    }
-
-    .loader-overlay.success-state .loader-orbit {
-      display: none;
-    }
-
-    .loader-overlay.success-state .loader-success {
-      display: flex;
-    }
-
-    .loader-kicker {
-      color: var(--accent);
+    .field-label {
       font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.6px;
+
+      font-weight: 800;
+
+      color: var(--text-muted);
+
       text-transform: uppercase;
-      margin-bottom: 5px;
+
+      letter-spacing: 0.05em;
     }
 
-    .loader-title {
-      color: var(--text-dark);
-      font-size: 12px;
-      font-weight: 600;
-      margin: 0;
-    }
+    .paste-input {
+      min-height: 180px;
 
-    .loader-detail {
-      color: var(--text-muted);
+      resize: vertical;
+
+      padding: 12px;
+
       font-size: 11px;
-      margin-top: 5px;
-      min-height: 15px;
+
+      line-height: 1.5;
     }
 
-    .loader-progress {
-      height: 4px;
-      margin: 14px 0 13px;
-      border-radius: 10px;
-      overflow: hidden;
-      background: var(--border-color);
+    .process-row {
+      padding: 0 16px 16px;
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 10px;
     }
 
-    .loader-progress-bar {
-      height: 100%;
-      width: 5%;
-      background: var(--accent);
-      transition: width 0.28s ease;
+    .process-button {
+      height: 40px;
+
+      padding: 0 18px;
+
+      border: 0;
+
+      border-radius: 8px;
+
+      background: var(--primary);
+
+      color: white;
+
+      font-size: 12px;
+
+      font-weight: 800;
     }
 
-    .loader-steps {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 4px;
+    .process-button:hover {
+      background: var(--primary-dark);
     }
 
-    .loader-step {
-      font-size: 9px;
-      color: var(--text-muted);
+    .process-button:disabled {
       opacity: 0.55;
+
+      cursor: not-allowed;
     }
 
-    .loader-step-dot {
-      width: 7px;
-      height: 7px;
-      margin: 0 auto 4px;
-      border-radius: 50%;
-      background: var(--border-color);
+    /* =========================================================
+       ASSIGNEE PILLS
+       ========================================================= */
+
+    #assignee-selector-box {
+      padding: 0 16px 16px;
     }
 
-    .loader-step.active {
-      color: var(--accent);
-      opacity: 1;
-      font-weight: 600;
+    .assignee-pills {
+      display: flex;
+
+      flex-wrap: wrap;
+
+      gap: 6px;
     }
 
-    .loader-step.active .loader-step-dot {
-      background: var(--accent);
-    }
+    .assignee-pill {
+      border: 1px solid var(--border);
 
-    .loader-step.done {
-      color: var(--success);
-      opacity: 1;
-    }
+      background: var(--panel-2);
 
-    .loader-step.done .loader-step-dot {
-      background: var(--success);
-    }
-
-    .loader-step.success {
-      color: var(--success);
-      opacity: 1;
-      font-weight: 600;
-    }
-
-    .loader-step.success .loader-step-dot {
-      background: var(--success);
-    }
-
-    .loader-route {
-      display: inline-flex;
-      max-width: 100%;
-      box-sizing: border-box;
-      margin-top: 12px;
-      padding: 4px 8px;
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
       color: var(--text-muted);
+
+      padding: 6px 9px;
+
+      border-radius: 999px;
+
       font-size: 10px;
+
+      font-weight: 700;
+
+      cursor: pointer;
+    }
+
+    .assignee-pill:hover {
+      border-color: var(--primary);
+
+      color: var(--primary);
+    }
+
+    .assignee-pill.selected {
+      border-color: var(--primary);
+
+      background: var(--primary-light);
+
+      color: var(--primary);
+    }
+
+    /* =========================================================
+       STATS
+       ========================================================= */
+
+    .stats-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+      gap: 10px;
+
+      margin-top: 16px;
+    }
+
+    .stat-card {
+      background: var(--panel);
+
+      border: 1px solid var(--border);
+
+      border-radius: 10px;
+
+      padding: 12px;
+    }
+
+    .stat-label {
+      font-size: 9px;
+
+      color: var(--text-muted);
+
+      text-transform: uppercase;
+
+      font-weight: 800;
+    }
+
+    .stat-value {
+      margin-top: 5px;
+
+      font-size: 16px;
+
+      font-weight: 900;
+
+      color: var(--primary);
+    }
+
+    /* =========================================================
+       VIEW NAVIGATION
+       ========================================================= */
+
+    #view-navigation-row {
+      display: flex;
+
+      align-items: center;
+
+      justify-content: space-between;
+
+      gap: 10px;
+
+      padding: 12px 16px;
+
+      border-bottom: 1px solid var(--border);
+
+      background: var(--panel);
+    }
+
+    .view-title-wrap {
+      min-width: 0;
+    }
+
+    #view-title {
+      font-size: 12px;
+
+      font-weight: 800;
+
       white-space: nowrap;
+
       overflow: hidden;
+
       text-overflow: ellipsis;
+    }
+
+    #view-range-indicator {
+      font-size: 10px;
+
+      color: var(--text-muted);
+
+      margin-top: 3px;
+    }
+
+    .view-actions {
+      display: flex;
+
+      gap: 7px;
+
+      flex-shrink: 0;
+    }
+
+    .view-action-btn {
+      height: 34px;
+
+      border: 1px solid var(--border);
+
+      background: var(--panel);
+
+      color: var(--text);
+
+      border-radius: 7px;
+
+      padding: 0 10px;
+
+      font-size: 10px;
+
+      font-weight: 800;
+    }
+
+    .view-action-btn:hover {
+      border-color: var(--primary);
+
+      color: var(--primary);
+    }
+
+    .view-action-btn.primary {
+      background: var(--primary);
+
+      border-color: var(--primary);
+
+      color: white;
+    }
+
+    .view-action-btn.primary:hover {
+      background: var(--primary-dark);
+    }
+
+    /* =========================================================
+       TABLE
+       ========================================================= */
+
+    .grid-wrapper {
+      width: 100%;
+
+      overflow: auto;
+
+      max-height: calc(100vh - 240px);
+    }
+
+    #grid-output-view table {
+      width: max-content;
+
+      min-width: 100%;
+
+      border-collapse: separate;
+
+      border-spacing: 0;
+
+      font-size: 10px;
+    }
+
+    #grid-output-view th,
+    #grid-output-view td {
+      padding: 8px 10px;
+
+      border-right: 1px solid
+        var(--border);
+
+      border-bottom: 1px solid
+        var(--border);
+
+      max-width: 320px;
+
+      white-space: nowrap;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      vertical-align: middle;
+    }
+
+    #grid-output-view th {
+      position: sticky;
+
+      top: 0;
+
+      z-index: 5;
+
+      background:
+        var(--grid-header-bg);
+
+      color:
+        var(--grid-header-text);
+
+      font-weight: 900;
+
+      text-align: left;
+    }
+
+    #grid-output-view td {
+      background: var(--panel);
+
+      color: var(--text);
+    }
+
+    #grid-output-view tr:hover td {
+      background: var(--panel-2);
+    }
+
+    #grid-output-view th.spacer-col,
+    #grid-output-view td.spacer-col {
+      width: 16px;
+
+      min-width: 16px;
+
+      max-width: 16px;
+
+      padding: 0;
+
+      background: var(--bg);
+    }
+
+    .row-strikethrough td {
+      text-decoration: line-through;
+
+      opacity: 0.58;
+    }
+
+    /* =========================================================
+       GREEN HEADER FLASH - TWO TIMES
+       ========================================================= */
+
+    @keyframes processedHeaderFlash {
+      0%,
+      100% {
+        background:
+          var(--grid-header-bg);
+
+        color:
+          var(--grid-header-text);
+      }
+
+      12%,
+      38% {
+        background: #22c55e !important;
+
+        color: #ffffff !important;
+      }
+
+      25%,
+      51% {
+        background:
+          var(--grid-header-bg);
+
+        color:
+          var(--grid-header-text);
+      }
+    }
+
+    .processed-header-flash {
+      animation:
+        processedHeaderFlash
+        0.72s ease-in-out
+        2;
+    }
+
+    /* =========================================================
+       SPLASH
+       ========================================================= */
+
+    .splash-container {
+      min-height: 350px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      padding: 30px;
+    }
+
+    .splash-text {
+      max-width: 520px;
+
+      text-align: center;
+
+      color: var(--text-muted);
+
+      font-size: 12px;
+
+      line-height: 1.7;
+    }
+
+    /* =========================================================
+       LOADER
+       ========================================================= */
+
+    #view-loader-overlay {
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 1000;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      background:
+        rgba(9, 9, 11, 0.72);
+
+      backdrop-filter:
+        blur(8px);
+    }
+
+    #view-loader-overlay.hidden {
+      display: none !important;
+    }
+
+    .view-loader-card {
+      width: min(480px, calc(100vw - 32px));
+
+      background: var(--panel);
+
+      border: 1px solid var(--border);
+
+      border-radius: 16px;
+
+      padding: 25px;
+
+      box-shadow:
+        0 25px 70px
+        rgba(0, 0, 0, 0.28);
+
+      text-align: center;
+    }
+
+    .view-loader-kicker {
+      font-size: 9px;
+
+      font-weight: 900;
+
+      letter-spacing: 0.14em;
+
+      color: var(--primary);
+
+      margin-bottom: 10px;
+    }
+
+    #loader-route-name {
+      font-size: 10px;
+
+      color: var(--text-muted);
+
+      margin-bottom: 10px;
+
+      white-space: nowrap;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+    }
+
+    .loader-spinner {
+      width: 58px;
+
+      height: 58px;
+
+      border-radius: 50%;
+
+      border: 4px solid
+        var(--border);
+
+      border-top-color:
+        var(--primary);
+
+      animation:
+        loaderSpin
+        0.8s linear
+        infinite;
+
+      margin: 0 auto 18px;
     }
 
     @keyframes loaderSpin {
@@ -561,486 +979,890 @@
       }
     }
 
-    .metrics-banner {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-bottom: 12px;
+    #view-loader-text {
+      font-size: 18px;
+
+      font-weight: 900;
     }
 
-    .metric-card {
-      background: var(--bg-main);
-      border: 1px solid var(--border-color);
-      padding: 8px 10px;
-      border-radius: 4px;
-    }
+    #view-loader-detail {
+      margin-top: 6px;
 
-    .metric-card h4 {
-      margin: 0;
       color: var(--text-muted);
-      font-size: 10px;
-      text-transform: uppercase;
-    }
 
-    .metric-card div {
-      font-size: 14px;
-      font-weight: 600;
-      margin-top: 2px;
-    }
-
-    .table-wrapper {
-      flex: 1;
-      overflow: auto;
-      border: 1px solid var(--border-color);
-      background: #ffffff;
-    }
-
-    [data-theme="dark"] .table-wrapper {
-      background: #0f172a;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
       font-size: 11px;
-      table-layout: auto;
     }
 
-    th {
-      background: var(--grid-header-bg);
-      color: var(--grid-header-text);
-      padding: 6px 8px;
-      font-weight: 600;
-      border-right: 1px solid var(--border-color);
-      border-bottom: 2px solid var(--border-color);
-      white-space: nowrap;
-      text-align: left;
-    }
+    .loader-progress-track {
+      width: 100%;
 
-    td {
-      padding: 4px 8px;
-      border-right: 1px solid var(--border-color);
-      border-bottom: 1px solid var(--border-color);
-      color: var(--text-dark);
-      white-space: nowrap;
-      max-width: 260px;
+      height: 7px;
+
+      border-radius: 999px;
+
+      background: var(--border);
+
       overflow: hidden;
-      text-overflow: ellipsis;
+
+      margin-top: 20px;
     }
 
-    td.spacer-col,
-    th.spacer-col {
-      background-color: var(--spacer-col-bg) !important;
-      width: 16px;
-      min-width: 16px;
-      padding: 0;
-    }
+    #view-loader-progress {
+      width: 0;
 
-    tr:hover td {
-      background-color: rgba(26, 115, 232, 0.05);
-    }
-
-    tr.row-strikethrough td {
-      background-color: var(--strikethrough-row-bg) !important;
-      text-decoration: line-through !important;
-      color: var(--strikethrough-row-text) !important;
-    }
-
-    .splash-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
       height: 100%;
-      min-height: 250px;
+
+      border-radius: 999px;
+
+      background: var(--primary);
+
+      transition:
+        width 0.35s ease;
     }
 
-    .splash-text {
-      font-size: 12px;
+    .loader-steps {
+      display: grid;
+
+      grid-template-columns:
+        repeat(5, 1fr);
+
+      gap: 6px;
+
+      margin-top: 18px;
+    }
+
+    .loader-step {
+      min-width: 0;
+
+      font-size: 8px;
+
       color: var(--text-muted);
-      font-style: italic;
+
+      font-weight: 800;
+    }
+
+    .loader-step-dot {
+      width: 9px;
+
+      height: 9px;
+
+      border-radius: 50%;
+
+      background: var(--border);
+
+      margin: 0 auto 5px;
+    }
+
+    .loader-step.active
+    .loader-step-dot {
+      background: var(--primary);
+
+      box-shadow:
+        0 0 0 4px
+        var(--primary-light);
+    }
+
+    .loader-step.done
+    .loader-step-dot {
+      background: var(--success);
+    }
+
+    .loader-step.success
+    .loader-step-dot {
+      background: var(--success);
+
+      box-shadow:
+        0 0 0 4px
+        var(--success-light);
+    }
+
+    #btn-close-loader {
+      margin-top: 18px;
+
+      height: 34px;
+
+      padding: 0 15px;
+
+      border: 1px solid var(--border);
+
+      border-radius: 7px;
+
+      background: var(--panel);
+
+      color: var(--text);
+
+      font-size: 10px;
+
+      font-weight: 800;
+    }
+
+    #btn-close-loader:hover {
+      border-color: var(--danger);
+
+      color: var(--danger);
+    }
+
+    /* =========================================================
+       OFFLINE
+       ========================================================= */
+
+    #global-offline-blocker {
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 2000;
+
+      background: var(--bg);
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+    }
+
+    .offline-card {
+      width: min(430px, calc(100vw - 32px));
+
+      background: var(--panel);
+
+      border: 1px solid var(--border);
+
+      border-radius: 14px;
+
+      padding: 28px;
+
       text-align: center;
-      max-width: 320px;
+
+      box-shadow: var(--shadow);
+    }
+
+    .offline-icon {
+      font-size: 35px;
+
+      margin-bottom: 10px;
+    }
+
+    .offline-title {
+      font-size: 18px;
+
+      font-weight: 900;
+    }
+
+    .offline-text {
+      margin-top: 8px;
+
+      color: var(--text-muted);
+
+      font-size: 11px;
+
+      line-height: 1.6;
+    }
+
+    /* =========================================================
+       RESPONSIVE
+       ========================================================= */
+
+    @media (max-width: 900px) {
+      .app-layout {
+        grid-template-columns:
+          230px
+          minmax(0, 1fr);
+      }
+
+      .stats-grid {
+        grid-template-columns:
+          repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 700px) {
+      body {
+        overflow: auto;
+      }
+
+      .app-layout {
+        height: auto;
+
+        min-height:
+          calc(100vh - 64px);
+
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+
+        border-bottom: 1px solid
+          var(--border);
+      }
+
+      .input-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .field-group.full {
+        grid-column: auto;
+      }
+
+      .stats-grid {
+        grid-template-columns:
+          1fr 1fr;
+      }
+
+      .content-scroll {
+        overflow: visible;
+      }
+
+      .grid-wrapper {
+        max-height: 60vh;
+      }
     }
   </style>
 </head>
 
 <body>
 
-  <div class="offline-overlay hidden" id="global-offline-blocker">
+  <!-- =======================================================
+       OFFLINE SCREEN
+       ======================================================= -->
+
+  <div
+    id="global-offline-blocker"
+    class="hidden"
+  >
     <div class="offline-card">
-      <h2 style="color:#ef4444; margin:0 0 10px 0;">Workspace Offline</h2>
-      <p style="color:#94a3b8; font-size:12px;">
-        Active internet connection required to maintain sync stability.
-      </p>
+
+      <div class="offline-icon">
+        ⚠️
+      </div>
+
+      <div class="offline-title">
+        No Internet Connection
+      </div>
+
+      <div class="offline-text">
+        Please reconnect your internet connection
+        before processing or opening workspace data.
+      </div>
+
     </div>
   </div>
 
-  <div class="navbar">
-    <h1>SHEET TASK EXTRACTOR PRO (DIRECT INGEST)</h1>
 
-    <div>
-      <button class="theme-toggle" id="theme-toggle-btn">
-        ◑ Dark Mode
-      </button>
-    </div>
-  </div>
+  <!-- =======================================================
+       TOP HEADER
+       ======================================================= -->
 
-  <div class="main-layout">
+  <header class="top-header">
 
-    <div class="sidebar">
+    <div class="brand">
 
-      <div class="card">
+      <div class="brand-icon">
+        S
+      </div>
 
-        <div class="card-title">
-          Data Ingestion Engine
+      <div>
+
+        <div class="brand-title">
+          Sheet Task Extractor Pro
         </div>
 
-        <div class="form-group">
-          <label for="paste-input">
-            Paste Google Sheet Data Stream
-          </label>
-
-          <textarea
-            id="paste-input"
-            placeholder="Paste data directly from Google Sheets here..."
-          ></textarea>
+        <div class="brand-subtitle">
+          Direct Ingest Workspace
         </div>
-
-        <div id="assignee-selector-box" class="assignee-container hidden">
-
-          <label style="font-size:11px; font-weight:700;">
-            Filter Stream by Assignee:
-          </label>
-
-          <div
-            id="assignee-pills-list"
-            class="assignee-pill-group"
-          ></div>
-
-        </div>
-
-        <div class="form-group">
-
-          <label for="main-sheet-input">
-            Main Folder / Sheet Name
-          </label>
-
-          <input
-            type="text"
-            id="main-sheet-input"
-            placeholder="Type or paste folder name manually..."
-          >
-
-        </div>
-
-        <div class="form-group">
-
-          <label
-            for="main-sheet-select"
-            style="font-weight:400;color:var(--text-muted);"
-          >
-            or Pick Existing Folder from Storage
-          </label>
-
-          <select id="main-sheet-select">
-            <option value="" selected>
-              -- Select Existing Folder --
-            </option>
-          </select>
-
-        </div>
-
-        <div class="form-group">
-
-          <label for="sub-sheet-input">
-            Sub Route / Route Identifier
-          </label>
-
-          <input
-            type="text"
-            id="sub-sheet-input"
-            placeholder="e.g., Route 49 Inbound"
-          >
-
-        </div>
-
-        <button
-          class="btn-primary"
-          id="process-entry-btn"
-        >
-          Process & Store Selected Data
-        </button>
-
-        <button
-          class="btn-danger"
-          id="clear-db-btn"
-        >
-          Wipe Storage Memory
-        </button>
 
       </div>
 
-      <div
-        class="card"
-        style="flex:1;display:flex;flex-direction:column;"
-      >
+    </div>
 
-        <div class="card-title">
-          Workbook Directory
+
+    <div class="header-actions">
+
+      <button
+        id="theme-toggle-btn"
+        class="header-btn"
+      >
+        ◑ Dark Mode
+      </button>
+
+    </div>
+
+  </header>
+
+
+  <!-- =======================================================
+       APP LAYOUT
+       ======================================================= -->
+
+  <div class="app-layout">
+
+
+    <!-- =====================================================
+         SIDEBAR
+         ===================================================== -->
+
+    <aside class="sidebar">
+
+
+      <div class="sidebar-section">
+
+        <div class="sidebar-label">
+          FOLDER
+        </div>
+
+        <div class="folder-input-row">
+
+          <input
+            id="main-sheet-input"
+            class="text-input"
+            type="text"
+            placeholder="Folder name"
+          >
+
+        </div>
+
+        <div style="height:7px;"></div>
+
+        <select
+          id="main-sheet-select"
+          class="select-input"
+        >
+          <option
+            value=""
+            selected
+          >
+            -- Select Existing Folder --
+          </option>
+        </select>
+
+      </div>
+
+
+      <div class="sidebar-section">
+
+        <div class="sidebar-label">
+          WORKBOOK INDEX
         </div>
 
         <div
           id="workbook-tree-container"
-          style="flex:1;overflow-y:auto;"
         >
-          <div style="padding:10px;color:var(--text-muted);">
+          <div
+            style="
+              padding:10px;
+              color:var(--text-muted);
+              font-size:11px;
+            "
+          >
             No datasets loaded.
           </div>
         </div>
 
       </div>
 
-    </div>
 
-    <div class="content-area">
+      <div class="sidebar-section">
 
-      <!-- PROFESSIONAL ROUTE LOADER -->
+        <button
+          id="clear-db-btn"
+          class="sidebar-button danger"
+        >
+          Clear Local Database
+        </button>
 
-      <div
-        class="loader-overlay hidden"
-        id="view-loader-overlay"
-        aria-live="polite"
-      >
+      </div>
 
-        <div class="loader-panel">
 
-          <button
-            class="loader-close"
-            id="btn-close-loader"
-            type="button"
-            aria-label="Close loading window"
-          >
-            ×
-          </button>
+      <!-- ===================================================
+           GLOBAL STATS
+           =================================================== -->
 
-          <div
-            class="loader-orbit"
-            aria-hidden="true"
-          ></div>
+      <div class="sidebar-section">
 
-          <div
-            class="loader-success"
-            aria-hidden="true"
-          >
-            ✓
+        <div class="sidebar-label">
+          GLOBAL METRICS
+        </div>
+
+        <div
+          id="stat-grand-total"
+          style="
+            font-size:11px;
+            color:var(--text-muted);
+            margin-bottom:6px;
+          "
+        >
+          0 Rows
+        </div>
+
+        <div
+          id="stat-main-total"
+          style="
+            font-size:11px;
+            color:var(--text-muted);
+            margin-bottom:6px;
+          "
+        >
+          0 Rows
+        </div>
+
+        <div
+          id="stat-sub-total"
+          style="
+            font-size:11px;
+            color:var(--text-muted);
+            margin-bottom:6px;
+          "
+        >
+          0 Rows
+        </div>
+
+        <div
+          id="stat-strike-total"
+          style="
+            font-size:11px;
+            color:var(--danger);
+          "
+        >
+          0 Rows
+        </div>
+
+      </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN CONTENT
+         ===================================================== -->
+
+    <main class="main-content">
+
+      <div class="content-scroll">
+
+
+        <!-- =================================================
+             INPUT CARD
+             ================================================= -->
+
+        <section class="content-card">
+
+          <div class="content-card-header">
+
+            <div class="content-card-title">
+              Paste Sheet Data
+            </div>
+
+            <div class="content-card-subtitle">
+              Paste directly from Google Sheets.
+              Headers are detected automatically.
+            </div>
+
           </div>
 
-          <div
-            class="loader-kicker"
-            id="view-loader-kicker"
-          >
-            DATA WORKFLOW
+
+          <div class="input-grid">
+
+
+            <div class="field-group">
+
+              <label
+                class="field-label"
+                for="sub-sheet-input"
+              >
+                Sub-Route / Sheet Name
+              </label>
+
+              <input
+                id="sub-sheet-input"
+                class="text-input"
+                type="text"
+                placeholder="e.g. Route 48"
+              >
+
+            </div>
+
+
+            <div class="field-group">
+
+              <label
+                class="field-label"
+              >
+                Header Detection
+              </label>
+
+              <div
+                style="
+                  height:38px;
+                  display:flex;
+                  align-items:center;
+                  padding:0 10px;
+                  border:1px solid var(--border);
+                  border-radius:8px;
+                  background:var(--panel-2);
+                  color:var(--text-muted);
+                  font-size:10px;
+                "
+              >
+                Assignee and other headers
+                are detected from the pasted sheet.
+              </div>
+
+            </div>
+
+
+            <div class="field-group full">
+
+              <label
+                class="field-label"
+                for="paste-input"
+              >
+                Data Stream
+              </label>
+
+              <textarea
+                id="paste-input"
+                class="paste-input"
+                placeholder="Copy rows including the header from Google Sheets and paste them here..."
+              ></textarea>
+
+            </div>
+
           </div>
 
-          <h3
-            class="loader-title"
-            id="view-loader-text"
-          >
-            Reading data
-          </h3>
+
+          <!-- ===============================================
+               ASSIGNEE FILTER
+               =============================================== -->
 
           <div
-            class="loader-detail"
-            id="view-loader-detail"
+            id="assignee-selector-box"
+            class="hidden"
           >
-            Preparing the selected data...
-          </div>
-
-          <div class="loader-progress">
 
             <div
-              class="loader-progress-bar"
-              id="view-loader-progress"
+              class="field-label"
+              style="margin-bottom:7px;"
+            >
+              Detected Assignees
+            </div>
+
+            <div
+              id="assignee-pills-list"
+              class="assignee-pills"
             ></div>
 
           </div>
 
-          <div class="loader-steps">
 
-            <div
-              class="loader-step active"
-              data-step="reading"
+          <div class="process-row">
+
+            <button
+              id="process-entry-btn"
+              class="process-button"
             >
-              <div class="loader-step-dot"></div>
-              Reading
+              Process & Store Data
+            </button>
+
+          </div>
+
+        </section>
+
+
+        <!-- =================================================
+             STATS
+             ================================================= -->
+
+        <div class="stats-grid">
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              All Data
             </div>
 
             <div
-              class="loader-step"
-              data-step="analysing"
+              id="stat-grand-total-card"
+              class="stat-value"
             >
-              <div class="loader-step-dot"></div>
-              Analysing
-            </div>
-
-            <div
-              class="loader-step"
-              data-step="arranging"
-            >
-              <div class="loader-step-dot"></div>
-              Arranging
-            </div>
-
-            <div
-              class="loader-step"
-              data-step="storing"
-            >
-              <div class="loader-step-dot"></div>
-              Storing
-            </div>
-
-            <div
-              class="loader-step"
-              data-step="success"
-            >
-              <div class="loader-step-dot"></div>
-              Success
+              --
             </div>
 
           </div>
 
-          <div
-            class="loader-route hidden"
-            id="loader-route-name"
-          ></div>
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Current Folder
+            </div>
+
+            <div
+              id="stat-main-total-card"
+              class="stat-value"
+            >
+              --
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Current Route
+            </div>
+
+            <div
+              id="stat-sub-total-card"
+              class="stat-value"
+            >
+              --
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Strikethrough
+            </div>
+
+            <div
+              id="stat-strike-total-card"
+              class="stat-value"
+              style="color:var(--danger);"
+            >
+              --
+            </div>
+
+          </div>
 
         </div>
 
-      </div>
 
-      <!-- WORKSPACE CONTROLS -->
+        <!-- =================================================
+             VIEW CARD
+             ================================================= -->
 
-      <div
-        id="view-navigation-row"
-        class="hidden action-controls-row"
-      >
-
-        <button
-          class="btn-back"
-          id="btn-close-view"
+        <section
+          class="content-card"
+          style="
+            margin-top:16px;
+          "
         >
-          ✕ Clear Active Workspace
-        </button>
 
-        <div class="export-buttons-group">
-
-          <button
-            class="btn-export-gsheet"
-            id="btn-create-gsheet"
-          >
-            🟢 Open Google Sheet
-          </button>
-
-          <button
-            class="btn-export-csv"
-            id="btn-export-csv"
-          >
-            💾 Export CSV
-          </button>
-
-        </div>
-
-      </div>
-
-      <!-- METRICS -->
-
-      <div class="metrics-banner">
-
-        <div class="metric-card">
-
-          <h4>
-            Total Database Volume
-          </h4>
-
-          <div id="stat-grand-total">
-            0 Rows
-          </div>
-
-        </div>
-
-        <div class="metric-card">
-
-          <h4>
-            Active Folder
-          </h4>
-
-          <div id="stat-main-total">
-            0 Rows
-          </div>
-
-        </div>
-
-        <div class="metric-card">
-
-          <h4>
-            Active Sub Route
-          </h4>
-
-          <div id="stat-sub-total">
-            0 Rows
-          </div>
-
-        </div>
-
-        <div class="metric-card">
-
-          <h4>
-            Strikethrough Rows
-          </h4>
 
           <div
-            id="stat-strike-total"
-            style="color:var(--danger);"
+            id="view-navigation-row"
+            class="hidden"
           >
-            0 Rows
+
+            <div class="view-title-wrap">
+
+              <div id="view-title">
+                Active Workspace View
+              </div>
+
+              <div
+                id="view-range-indicator"
+              ></div>
+
+            </div>
+
+
+            <div class="view-actions">
+
+              <button
+                id="btn-create-gsheet"
+                class="view-action-btn primary"
+              >
+                Open Google Sheets
+              </button>
+
+              <button
+                id="btn-export-csv"
+                class="view-action-btn"
+              >
+                Export CSV
+              </button>
+
+              <button
+                id="btn-close-view"
+                class="view-action-btn"
+              >
+                Close
+              </button>
+
+            </div>
+
           </div>
 
-        </div>
+
+          <div
+            id="grid-output-view"
+            class="grid-wrapper"
+          >
+
+            <div class="splash-container">
+
+              <div class="splash-text">
+
+                Paste sheet data stream or select
+                a subfolder node from the workbook
+                index to mount sheet records.
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
 
       </div>
 
-      <h2
-        id="view-title"
-        style="font-size:13px;font-weight:600;margin:0 0 4px 0;"
-      >
-        Active Workspace View
-      </h2>
+    </main>
+
+  </div>
+
+
+  <!-- =======================================================
+       PROCESS / ROUTE LOADER
+       ======================================================= -->
+
+  <div
+    id="view-loader-overlay"
+    class="hidden"
+  >
+
+    <div class="view-loader-card">
+
 
       <div
-        id="view-range-indicator"
-        style="font-size:11px;color:var(--text-muted);margin-bottom:8px;"
+        id="view-loader-kicker"
+        class="view-loader-kicker"
+      >
+        DATA WORKFLOW
+      </div>
+
+
+      <div
+        id="loader-route-name"
+        class="hidden"
       ></div>
 
+
+      <div class="loader-spinner"></div>
+
+
       <div
-        class="table-wrapper"
-        id="grid-output-view"
+        id="view-loader-text"
       >
+        Reading data
+      </div>
 
-        <div class="splash-container">
 
-          <div class="splash-text">
-            Paste sheet data stream or select a subfolder node from the
-            workbook index to mount sheet records.
-          </div>
+      <div
+        id="view-loader-detail"
+      >
+        Reading the selected data stream...
+      </div>
+
+
+      <div class="loader-progress-track">
+
+        <div
+          id="view-loader-progress"
+        ></div>
+
+      </div>
+
+
+      <div class="loader-steps">
+
+
+        <div
+          class="loader-step"
+          data-step="reading"
+        >
+
+          <div class="loader-step-dot"></div>
+
+          Reading
 
         </div>
 
+
+        <div
+          class="loader-step"
+          data-step="analysing"
+        >
+
+          <div class="loader-step-dot"></div>
+
+          Analysing
+
+        </div>
+
+
+        <div
+          class="loader-step"
+          data-step="arranging"
+        >
+
+          <div class="loader-step-dot"></div>
+
+          Arranging
+
+        </div>
+
+
+        <div
+          class="loader-step"
+          data-step="storing"
+        >
+
+          <div class="loader-step-dot"></div>
+
+          Storing
+
+        </div>
+
+
+        <div
+          class="loader-step"
+          data-step="success"
+        >
+
+          <div class="loader-step-dot"></div>
+
+          Success
+
+        </div>
+
+
       </div>
+
+
+      <button
+        id="btn-close-loader"
+      >
+        Close
+      </button>
+
 
     </div>
 
   </div>
+
+
+  <!-- =======================================================
+       APP JAVASCRIPT
+       ======================================================= -->
 
   <script src="app.js"></script>
 
