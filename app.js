@@ -1917,13 +1917,28 @@ document
 
 
       showLoader(
-        "process",
-        mainName,
-        subName
-      );
+  "process",
+  mainName,
+  subName
+);
 
+/*
+ * IMPORTANT:
+ * Give the browser one rendering cycle to
+ * actually display the rotating loader before
+ * heavy data processing begins.
+ */
+await new Promise(
+  resolve =>
+    requestAnimationFrame(
+      () =>
+        requestAnimationFrame(
+          resolve
+        )
+    )
+);
 
-      try {
+try {
 
         /* ======================================================
            READING
