@@ -56,6 +56,14 @@ let parsedParsedRowsStream = [];
 let detectedAssigneeColIdx = -1;
 let detectedHeaderRowIdx = -1;
 
+/*
+ * DYNAMIC HEADER STATE
+ * The pasted sheet header is the source of truth.
+ * masterHeaders remains only as a fallback for headerless data.
+ */
+let detectedHeaders = [];
+let detectedHeaderSourceRow = -1;
+
 
 /* ============================================================
    PROFESSIONAL LOADER STATE
@@ -776,6 +784,534 @@ document
 
 
 /* ============================================================
+   DYNAMIC HEADER DETECTION
+   ============================================================ */
+
+function normalizeHeaderName(value) {
+  return String(value ?? "")
+    .replace(/\r?\n/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase()
+    .replace(/[：:]+$/g, "")
+    .replace(/\s*[-–—]\s*/g, " ")
+    .trim();
+}
+
+function isAssigneeHeader(value) {
+  const normalized = normalizeHeaderName(value);
+
+  if (!normalized) {
+    return false;
+  }
+
+  return [
+    "ASSIGNEE",
+    "ASSIGNEE NAME",
+    "ASSIGNEE EMAIL",
+    "ASSIGNED TO",
+    "ASSIGNED",
+    "ASSIGNED USER",
+    "ASSIGNED USERNAME",
+    "WORKER",
+    "WORKER NAME",
+    "ANNOTATOR",
+    "ANNOTATOR NAME",
+    "ANNOTATOR EMAIL"
+  ].includes(normalized) ||
+  normalized.includes("ASSIGNEE") ||
+  normalized.startsWith("ASSIGNED TO") ||
+  normalized.startsWith("ASSIGNED USER");
+}
+
+function isRouteHeader(value) {
+  const normalized = normalizeHeaderName(value);
+
+  return (
+    normalized === "BUS ROUTE" ||
+    normalized === "ROUTE" ||
+    normalized.includes("BUS ROUTE") ||
+    normalized.includes("ROUTE")
+  );
+}
+
+function looksLikeHeaderRow(row) {
+
+  if (
+    !Array.isArray(row) ||
+    row.length === 0
+  ) {
+    return false;
+  }
+
+  const nonEmpty =
+    row.filter(
+      cell =>
+        String(cell ?? "").trim() !== ""
+    );
+
+  if (
+    nonEmpty.length < 2
+  ) {
+    return false;
+  }
+
+  const hasAssignee =
+    row.some(
+      isAssigneeHeader
+    );
+
+  const hasKnownMasterHeader =
+    nonEmpty.filter(
+      cell =>
+        masterHeaders.some(
+          master =>
+            normalizeHeaderName(master) ===
+              normalizeHeaderName(cell) ||
+            (
+              normalizeHeaderName(master) &&
+              normalizeHeaderName(cell) &&
+              normalizeHeaderName(master).includes(
+                normalizeHeaderName(cell)
+              )
+            )
+        )
+    ).length;
+
+  return (
+    hasAssignee ||
+    hasKnownMasterHeader >= 2
+  );
+}
+
+function findDetectedHeaderRow(rows) {
+
+  /*
+   * Search the first 10 rows. This also supports pasted
+   * streams with a title/filter row above the real header.
+   */
+
+  for (
+    let rowIndex = 0;
+    rowIndex < Math.min(
+      rows.length,
+      10
+    );
+    rowIndex++
+  ) {
+
+    if (
+      looksLikeHeaderRow(
+        rows[rowIndex]
+      )
+    ) {
+      return rowIndex;
+    }
+  }
+
+  return -1;
+}
+
+function buildDetectedHeaders(
+  rows,
+  headerRowIndex
+) {
+
+  if (
+    headerRowIndex < 0 ||
+    !rows[headerRowIndex]
+  ) {
+    return [];
+  }
+
+  const headers = [];
+  const seen = new Map();
+
+  rows[headerRowIndex].forEach(
+    (rawHeader, index) => {
+
+      const text =
+        String(rawHeader ?? "")
+          .replace(/\r?\n/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      if (!text) {
+
+        /*
+         * Preserve blank Google Sheet columns instead of
+         * shifting all following values to the left.
+         */
+
+        headers.push(
+          `SPACER_${index + 1}`
+        );
+
+        return;
+      }
+
+      const key =
+        normalizeHeaderName(
+          text
+        );
+
+      if (
+        !seen.has(key)
+      ) {
+
+        seen.set(
+          key,
+          1
+        );
+
+        headers.push(
+          text
+        );
+
+      } else {
+
+        const count =
+          seen.get(key) + 1;
+
+        seen.set(
+          key,
+          count
+        );
+
+        headers.push(
+          `${text}_dup${count - 1}`
+        );
+      }
+    }
+  );
+
+  return headers;
+}
+
+function findAssigneeColumn(
+  headers
+) {
+
+  for (
+    let i = 0;
+    i < headers.length;
+    i++
+  ) {
+
+    if (
+      isAssigneeHeader(
+        headers[i]
+      )
+    ) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function findRouteColumn(
+  headers
+) {
+
+  for (
+    let i = 0;
+    i < headers.length;
+    i++
+  ) {
+
+    if (
+      isRouteHeader(
+        headers[i]
+      )
+    ) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function getHeaderKey(
+  header
+) {
+
+  return normalizeHeaderName(
+    String(header ?? "")
+      .replace(
+        /_dup\d+$/i,
+        ""
+      )
+  );
+}
+
+function createHeaderIndexMap(
+  sourceHeaders
+) {
+
+  const map =
+    new Map();
+
+  sourceHeaders.forEach(
+    (header, index) => {
+
+      const key =
+        getHeaderKey(
+          header
+        );
+
+      if (!key) {
+        return;
+      }
+
+      if (
+        !map.has(key)
+      ) {
+
+        map.set(
+          key,
+          []
+        );
+      }
+
+      map.get(key).push(
+        index
+      );
+    }
+  );
+
+  return map;
+}
+
+function mergeHeaderSets(
+  existingHeaders,
+  incomingHeaders
+) {
+
+  if (
+    !Array.isArray(
+      existingHeaders
+    ) ||
+    existingHeaders.length === 0
+  ) {
+
+    return [
+      ...incomingHeaders
+    ];
+  }
+
+  const result =
+    [
+      ...existingHeaders
+    ];
+
+  const existingKeys =
+    new Set(
+      existingHeaders
+        .map(
+          getHeaderKey
+        )
+        .filter(
+          Boolean
+        )
+    );
+
+  incomingHeaders.forEach(
+    header => {
+
+      const key =
+        getHeaderKey(
+          header
+        );
+
+      if (!key) {
+        return;
+      }
+
+      if (
+        !existingKeys.has(
+          key
+        )
+      ) {
+
+        result.push(
+          header
+        );
+
+        existingKeys.add(
+          key
+        );
+      }
+    }
+  );
+
+  return result;
+}
+
+function alignRowByHeaders(
+  cells,
+  sourceHeaders,
+  targetHeaders
+) {
+
+  const aligned =
+    new Array(
+      targetHeaders.length
+    ).fill("");
+
+  const sourceMap =
+    createHeaderIndexMap(
+      sourceHeaders
+    );
+
+  targetHeaders.forEach(
+    (
+      targetHeader,
+      targetIndex
+    ) => {
+
+      const key =
+        getHeaderKey(
+          targetHeader
+        );
+
+      if (!key) {
+
+        /*
+         * Blank/spacer columns remain positional.
+         */
+
+        if (
+          targetIndex <
+            cells.length &&
+          sourceHeaders[
+            targetIndex
+          ] &&
+          sourceHeaders[
+            targetIndex
+          ].startsWith(
+            "SPACER_"
+          )
+        ) {
+
+          aligned[
+            targetIndex
+          ] =
+            cells[
+              targetIndex
+            ] ?? "";
+        }
+
+        return;
+      }
+
+      const indexes =
+        sourceMap.get(
+          key
+        );
+
+      if (
+        !indexes ||
+        indexes.length === 0
+      ) {
+        return;
+      }
+
+      const sourceIndex =
+        indexes[0];
+
+      if (
+        sourceIndex <
+        cells.length
+      ) {
+
+        aligned[
+          targetIndex
+        ] =
+          cells[
+            sourceIndex
+          ] ?? "";
+      }
+    }
+  );
+
+  /*
+   * Safety fallback for unusual headerless structures.
+   */
+
+  if (
+    !sourceHeaders.length ||
+    !targetHeaders.length
+  ) {
+
+    for (
+      let i = 0;
+      i <
+      Math.min(
+        cells.length,
+        targetHeaders.length
+      );
+      i++
+    ) {
+
+      aligned[i] =
+        cells[i] ?? "";
+    }
+  }
+
+  return aligned;
+}
+
+function flashProcessedHeadersTwice() {
+
+  const headers =
+    document.querySelectorAll(
+      "#grid-output-view thead th"
+    );
+
+  if (
+    !headers.length
+  ) {
+    return;
+  }
+
+  headers.forEach(
+    header => {
+
+      header.classList.remove(
+        "processed-header-flash"
+      );
+
+      /*
+       * Force reflow so the animation restarts
+       * even when processing the same route again.
+       */
+
+      void header.offsetWidth;
+
+      header.classList.add(
+        "processed-header-flash"
+      );
+    }
+  );
+
+  setTimeout(
+    () => {
+
+      headers.forEach(
+        header =>
+          header.classList.remove(
+            "processed-header-flash"
+          )
+      );
+
+    },
+    1500
+  );
+}
+
+
+/* ============================================================
    ASSIGNEE DETECTION
    ============================================================ */
 
@@ -786,20 +1322,19 @@ function parsePastedStreamForAssignees() {
       "paste-input"
     ).value;
 
-
   const container =
     document.getElementById(
       "assignee-selector-box"
     );
-
 
   const pillsList =
     document.getElementById(
       "assignee-pills-list"
     );
 
-
-  if (!rawText.trim()) {
+  if (
+    !rawText.trim()
+  ) {
 
     container.classList.add(
       "hidden"
@@ -807,118 +1342,97 @@ function parsePastedStreamForAssignees() {
 
     selectedAssignee = "";
 
+    detectedHeaders = [];
+
+    detectedHeaderSourceRow =
+      -1;
+
+    detectedHeaderRowIdx =
+      -1;
+
+    detectedAssigneeColIdx =
+      -1;
+
     return;
   }
-
 
   const lines =
     rawText
       .split(/\r?\n/)
       .filter(
-        line => line.length > 0
+        line =>
+          line.length > 0
       );
-
 
   if (
     lines.length === 0
   ) {
-
     return;
   }
-
 
   parsedParsedRowsStream =
     lines.map(
       line =>
         line
           .split("\t")
-          .map(cell => cell.trim())
+          .map(
+            cell =>
+              cell.trim()
+          )
     );
 
+  detectedAssigneeColIdx =
+    -1;
 
-  detectedAssigneeColIdx = -1;
-
-  detectedHeaderRowIdx = -1;
-
-
-  /*
-   * Search first five rows for Assignee.
-   */
-
-  for (
-    let rowIndex = 0;
-    rowIndex <
-    Math.min(
-      parsedParsedRowsStream.length,
-      5
+  detectedHeaderRowIdx =
+    findDetectedHeaderRow(
+      parsedParsedRowsStream
     );
-    rowIndex++
-  ) {
-
-    const row =
-      parsedParsedRowsStream[
-        rowIndex
-      ];
-
-
-    for (
-      let columnIndex = 0;
-      columnIndex < row.length;
-      columnIndex++
-    ) {
-
-      const cellValue =
-        row[columnIndex]
-          .toUpperCase();
-
-
-      if (
-        cellValue === "ASSIGNEE" ||
-        cellValue.includes(
-          "ASSIGNED"
-        )
-      ) {
-
-        detectedAssigneeColIdx =
-          columnIndex;
-
-        detectedHeaderRowIdx =
-          rowIndex;
-
-        break;
-      }
-    }
-
-
-    if (
-      detectedAssigneeColIdx !== -1
-    ) {
-
-      break;
-    }
-  }
-
 
   /*
-   * Fallback to master header position.
+   * The pasted header is now the source of truth.
    */
 
   if (
-    detectedAssigneeColIdx === -1
+    detectedHeaderRowIdx !== -1
   ) {
+
+    detectedHeaders =
+      buildDetectedHeaders(
+        parsedParsedRowsStream,
+        detectedHeaderRowIdx
+      );
+
+    detectedHeaderSourceRow =
+      detectedHeaderRowIdx;
+
+    detectedAssigneeColIdx =
+      findAssigneeColumn(
+        detectedHeaders
+      );
+
+  } else {
+
+    /*
+     * Headerless paste: keep the original fallback.
+     */
+
+    detectedHeaders = [];
+
+    detectedHeaderSourceRow =
+      -1;
 
     const masterAssigneeIndex =
       masterHeaders.indexOf(
         "Assignee"
       );
 
-
     if (
       masterAssigneeIndex !== -1
     ) {
 
-      let nonSpacerIdx = 0;
-
+      let physicalIndex =
+        0;
 
       for (
         let i = 0;
@@ -928,34 +1442,32 @@ function parsePastedStreamForAssignees() {
 
         if (
           !masterHeaders[i]
-            .startsWith("SPACER_")
+            .startsWith(
+              "SPACER_"
+            )
         ) {
 
-          nonSpacerIdx++;
+          physicalIndex++;
         }
       }
 
-
       detectedAssigneeColIdx =
-        nonSpacerIdx;
+        physicalIndex;
     }
   }
 
-
   const assigneeSet =
     new Set();
-
 
   const startRow =
     detectedHeaderRowIdx !== -1
       ? detectedHeaderRowIdx + 1
       : 0;
 
-
   for (
     let rowIndex = startRow;
     rowIndex <
-    parsedParsedRowsStream.length;
+      parsedParsedRowsStream.length;
     rowIndex++
   ) {
 
@@ -964,10 +1476,10 @@ function parsePastedStreamForAssignees() {
         rowIndex
       ];
 
-
     if (
       detectedAssigneeColIdx !== -1 &&
-      detectedAssigneeColIdx < row.length
+      detectedAssigneeColIdx <
+        row.length
     ) {
 
       const value =
@@ -975,12 +1487,12 @@ function parsePastedStreamForAssignees() {
           detectedAssigneeColIdx
         ];
 
-
       if (
         value &&
         value.trim().length > 0 &&
-        value.toUpperCase() !==
-          "ASSIGNEE"
+        !isAssigneeHeader(
+          value
+        )
       ) {
 
         assigneeSet.add(
@@ -990,44 +1502,29 @@ function parsePastedStreamForAssignees() {
     }
   }
 
-
   detectedAssignees =
     Array.from(
       assigneeSet
     );
 
-
   /*
-   * Detect route automatically.
+   * Detect route from the actual pasted header.
    */
 
   let detectedRoute = "";
 
-
   if (
-    detectedHeaderRowIdx !== -1
+    detectedHeaderRowIdx !== -1 &&
+    detectedHeaders.length
   ) {
 
-    const headerRow =
-      parsedParsedRowsStream[
-        detectedHeaderRowIdx
-      ];
-
-
-    const busRouteColIdx =
-      headerRow.findIndex(
-        header =>
-          header
-            .toUpperCase()
-            .includes("BUS ROUTE") ||
-          header
-            .toUpperCase()
-            .includes("ROUTE")
+    const routeColIdx =
+      findRouteColumn(
+        detectedHeaders
       );
 
-
     if (
-      busRouteColIdx !== -1 &&
+      routeColIdx !== -1 &&
       parsedParsedRowsStream.length >
         detectedHeaderRowIdx + 1
     ) {
@@ -1035,10 +1532,9 @@ function parsePastedStreamForAssignees() {
       detectedRoute =
         parsedParsedRowsStream[
           detectedHeaderRowIdx + 1
-        ][busRouteColIdx] || "";
+        ][routeColIdx] || "";
     }
   }
-
 
   if (
     detectedRoute &&
@@ -1053,7 +1549,6 @@ function parsePastedStreamForAssignees() {
       detectedRoute;
   }
 
-
   /*
    * Render assignee buttons.
    */
@@ -1064,12 +1559,10 @@ function parsePastedStreamForAssignees() {
 
     pillsList.innerHTML = "";
 
-
     const allPill =
       document.createElement(
         "div"
       );
-
 
     allPill.className =
       `assignee-pill ${
@@ -1078,10 +1571,8 @@ function parsePastedStreamForAssignees() {
           : ""
       }`;
 
-
     allPill.textContent =
       "All Assignees";
-
 
     allPill.addEventListener(
       "click",
@@ -1089,11 +1580,9 @@ function parsePastedStreamForAssignees() {
         selectAssigneeFilter("")
     );
 
-
     pillsList.appendChild(
       allPill
     );
-
 
     detectedAssignees.forEach(
       name => {
@@ -1103,7 +1592,6 @@ function parsePastedStreamForAssignees() {
             "div"
           );
 
-
         pill.className =
           `assignee-pill ${
             selectedAssignee === name
@@ -1111,10 +1599,8 @@ function parsePastedStreamForAssignees() {
               : ""
           }`;
 
-
         pill.textContent =
           name;
-
 
         pill.addEventListener(
           "click",
@@ -1124,13 +1610,11 @@ function parsePastedStreamForAssignees() {
             )
         );
 
-
         pillsList.appendChild(
           pill
         );
       }
     );
-
 
     container.classList.remove(
       "hidden"
@@ -1149,37 +1633,43 @@ function parsePastedStreamForAssignees() {
    ASSIGNEE FILTER
    ============================================================ */
 
-function selectAssigneeFilter(name) {
+function selectAssigneeFilter(
+  name
+) {
 
-  selectedAssignee = name;
+  selectedAssignee =
+    name;
 
 
   document
     .querySelectorAll(
       ".assignee-pill"
     )
-    .forEach(element => {
+    .forEach(
+      element => {
 
-      if (
-        (
-          name === "" &&
+        if (
+          (
+            name === "" &&
+            element.textContent ===
+              "All Assignees"
+          ) ||
           element.textContent ===
-            "All Assignees"
-        ) ||
-        element.textContent === name
-      ) {
+            name
+        ) {
 
-        element.classList.add(
-          "selected"
-        );
+          element.classList.add(
+            "selected"
+          );
 
-      } else {
+        } else {
 
-        element.classList.remove(
-          "selected"
-        );
+          element.classList.remove(
+            "selected"
+          );
+        }
       }
-    });
+    );
 }
 
 
@@ -1262,7 +1752,9 @@ document
     "change",
     event => {
 
-      if (event.target.value) {
+      if (
+        event.target.value
+      ) {
 
         document.getElementById(
           "main-sheet-input"
@@ -1509,9 +2001,6 @@ document
             );
 
 
-        const extractedRows = [];
-
-
         setLoaderStage(
           "analysing"
         );
@@ -1527,76 +2016,92 @@ document
         await wait(250);
 
 
-        let isHeaderRowPresent =
-          false;
+        /*
+         * DYNAMIC HEADER ANALYSIS
+         *
+         * The pasted header is the source of truth.
+         * masterHeaders is used only when the paste is
+         * genuinely headerless.
+         */
 
+        const parsedLines =
+          lines.map(
+            line =>
+              line
+                .split("\t")
+                .map(
+                  cell =>
+                    cell.trim()
+                )
+          );
+
+        const headerRowIndex =
+          findDetectedHeaderRow(
+            parsedLines
+          );
+
+        let inputHeaders = [];
 
         if (
-          lines.length
+          headerRowIndex !== -1
         ) {
 
-          const first =
-            lines[0]
-              .split("\t")
-              .map(
-                cell =>
-                  cell.trim()
-                    .toUpperCase()
-              );
-
-
-          const matchedHeaders =
-            first.filter(
-              cell =>
-                cell &&
-                masterHeaders.some(
-                  master =>
-                    master
-                      .toUpperCase()
-                      .includes(cell)
-                )
+          inputHeaders =
+            buildDetectedHeaders(
+              parsedLines,
+              headerRowIndex
             );
-
-
-          if (
-            matchedHeaders.length >= 2
-          ) {
-
-            isHeaderRowPresent = true;
-          }
         }
 
+        const hasDynamicHeader =
+          headerRowIndex !== -1 &&
+          inputHeaders.length > 0;
 
-        const startIndex =
-          isHeaderRowPresent
-            ? 1
+        const sourceRowsStart =
+          hasDynamicHeader
+            ? headerRowIndex + 1
             : 0;
 
+        /*
+         * Always detect Assignee from the SAME header
+         * that will be used for processing.
+         */
+
+        const activeAssigneeColIdx =
+          hasDynamicHeader
+            ? findAssigneeColumn(
+                inputHeaders
+              )
+            : detectedAssigneeColIdx;
+
+        const extractedRows = [];
 
         for (
-          let index = startIndex;
-          index < lines.length;
+          let index = sourceRowsStart;
+          index < parsedLines.length;
           index++
         ) {
 
           const cells =
-            lines[index]
-              .split("\t")
-              .map(
-                cell =>
-                  cell.trim()
-              );
+            parsedLines[index];
 
+          if (
+            cells.every(
+              cell => !cell
+            )
+          ) {
+
+            continue;
+          }
 
           const rowAssignee =
-            detectedAssigneeColIdx !== -1 &&
-            detectedAssigneeColIdx <
+            activeAssigneeColIdx !== -1 &&
+            activeAssigneeColIdx <
               cells.length
               ? cells[
-                  detectedAssigneeColIdx
+                  activeAssigneeColIdx
                 ].trim()
               : "";
-
 
           /*
            * If a specific assignee was selected,
@@ -1604,85 +2109,33 @@ document
            */
 
           if (
-            selectedAssignee !== ""
-              ? rowAssignee.toLowerCase() !==
-                selectedAssignee.toLowerCase()
-              : false
+            selectedAssignee !== "" &&
+            rowAssignee.toLowerCase() !==
+              selectedAssignee.toLowerCase()
           ) {
 
             continue;
           }
 
-
           /*
-           * If no assignee filter was selected,
-           * still accept the row.
+           * If Assignee exists, preserve the original rule:
+           * rows without an assignee are not stored.
            */
 
           if (
             selectedAssignee === "" &&
-            !rowAssignee &&
-            detectedAssigneeColIdx !== -1
+            activeAssigneeColIdx !== -1 &&
+            !rowAssignee
           ) {
-
-            /*
-             * Preserve original behavior:
-             * skip rows with no assignee.
-             */
 
             continue;
           }
-
-
-          const aligned =
-            new Array(
-              masterHeaders.length
-            ).fill("");
-
-
-          let pointer = 0;
-
-
-          for (
-            let masterIndex = 0;
-            masterIndex <
-            masterHeaders.length;
-            masterIndex++
-          ) {
-
-            if (
-              masterHeaders[
-                masterIndex
-              ].startsWith(
-                "SPACER_"
-              )
-            ) {
-
-              continue;
-            }
-
-
-            if (
-              pointer <
-              cells.length
-            ) {
-
-              aligned[
-                masterIndex
-              ] =
-                cells[pointer++];
-
-            }
-          }
-
 
           /*
            * Detect Google Sheet strikethrough.
            */
 
-          let strike =
-            false;
-
+          let strike = false;
 
           if (
             htmlRows.length
@@ -1697,7 +2150,6 @@ document
                   )
               );
 
-
             if (tr) {
 
               const style =
@@ -1705,11 +2157,9 @@ document
                   "style"
                 ) || "";
 
-
               const innerHtml =
                 tr.innerHTML
                   .toLowerCase();
-
 
               strike =
                 style.includes(
@@ -1727,10 +2177,15 @@ document
             }
           }
 
+          /*
+           * Keep the row in the exact order of the pasted
+           * headers. It is aligned to stored headers below.
+           */
 
           extractedRows.push({
-            data: aligned,
-            isStrikethrough: strike
+            data: cells,
+            isStrikethrough:
+              strike
           });
         }
 
@@ -1797,19 +2252,78 @@ document
           projectDatabase[
             mainName
           ][subName] = {
-            headers: masterHeaders,
+            headers:
+              hasDynamicHeader
+                ? [...inputHeaders]
+                : [...masterHeaders],
             rows: []
           };
         }
 
 
-        projectDatabase[
-          mainName
-        ][subName].rows =
+        const existingWorkbook =
           projectDatabase[
             mainName
-          ][subName].rows.concat(
-            extractedRows
+          ][subName];
+
+
+        const existingHeaders =
+          Array.isArray(
+            existingWorkbook.headers
+          ) &&
+          existingWorkbook.headers.length
+            ? existingWorkbook.headers
+            : (
+                hasDynamicHeader
+                  ? [...inputHeaders]
+                  : [...masterHeaders]
+              );
+
+
+        /*
+         * Merge the new header with the stored header.
+         * Column names, not physical positions, determine
+         * where each value belongs.
+         */
+
+        existingWorkbook.headers =
+          mergeHeaderSets(
+            existingHeaders,
+            hasDynamicHeader
+              ? inputHeaders
+              : existingHeaders
+          );
+
+
+        const finalHeaders =
+          existingWorkbook.headers;
+
+        const sourceHeaders =
+          hasDynamicHeader
+            ? inputHeaders
+            : finalHeaders;
+
+
+        const alignedExtractedRows =
+          extractedRows.map(
+            rowObject => ({
+
+              data:
+                alignRowByHeaders(
+                  rowObject.data,
+                  sourceHeaders,
+                  finalHeaders
+                ),
+
+              isStrikethrough:
+                rowObject.isStrikethrough
+            })
+          );
+
+
+        existingWorkbook.rows =
+          existingWorkbook.rows.concat(
+            alignedExtractedRows
           );
 
 
@@ -1914,6 +2428,13 @@ document
           subName
         );
 
+        /*
+         * Successful processing confirmation:
+         * flash the processed header row green twice.
+         */
+
+        flashProcessedHeadersTwice();
+
       } catch (error) {
 
         console.error(
@@ -1978,7 +2499,6 @@ function updateDropdownMenu() {
 
       option.value =
         mainKey;
-
 
       option.textContent =
         mainKey;
@@ -2488,7 +3008,6 @@ function renderSpreadsheetViewGrid(
         </div>
       `;
 
-
     rangeIndicator.textContent = "";
 
     return;
@@ -2690,8 +3209,7 @@ document
                 : rowObject.data;
 
 
-            return targetWorkbook
-              .headers
+            return targetWorkbook.headers
               .map(
                 (header, index) =>
                   header.startsWith(
@@ -3026,28 +3544,36 @@ function calculateGlobalMetrics() {
     );
 
 
-  if (grandElement) {
+  if (
+    grandElement
+  ) {
 
     grandElement.textContent =
       `${grandTotal} Rows`;
   }
 
 
-  if (mainElement) {
+  if (
+    mainElement
+  ) {
 
     mainElement.textContent =
       `${mainTotal} Rows`;
   }
 
 
-  if (subElement) {
+  if (
+    subElement
+  ) {
 
     subElement.textContent =
       `${subTotal} Rows`;
   }
 
 
-  if (strikeElement) {
+  if (
+    strikeElement
+  ) {
 
     strikeElement.textContent =
       `${strikeTotal} Rows`;
@@ -3150,6 +3676,7 @@ document
         rebuildWorkbookTree();
 
         calculateGlobalMetrics();
+
 
         setActivityUrl(
           "",
