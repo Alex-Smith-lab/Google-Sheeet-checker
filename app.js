@@ -2958,3 +2958,1743 @@ rowIndex
 
 }
  
+/* ============================================================
+MERGE EXISTING + NEW SHEET DATA
+============================================================ */
+
+function mergeSheetData(
+oldHeaders,
+oldRows,
+newHeaders,
+newRows
+) {
+
+/* Create stable header keys based on
+normalized name + occurrence number. */
+
+const oldKeys =
+createHeaderKeys(
+oldHeaders
+);
+
+const newKeys =
+createHeaderKeys(
+newHeaders
+);
+
+const mergedHeaders = [];
+
+const mergedKeys = [];
+
+/* Keep old columns first. */
+
+oldHeaders.forEach(
+(header, index) => {
+
+```
+  const key =
+    oldKeys[index];
+
+
+  if (
+    !mergedKeys.includes(
+      key
+    )
+  ) {
+
+    mergedKeys.push(
+      key
+    );
+
+    mergedHeaders.push(
+      header
+    );
+
+  }
+
+}
+```
+
+);
+
+/* Add newly pasted columns. */
+
+newHeaders.forEach(
+(header, index) => {
+
+```
+  const key =
+    newKeys[index];
+
+
+  if (
+    !mergedKeys.includes(
+      key
+    )
+  ) {
+
+    mergedKeys.push(
+      key
+    );
+
+    mergedHeaders.push(
+      header
+    );
+
+  }
+
+}
+```
+
+);
+
+/* Convert old rows. */
+
+const finalRows = [];
+
+oldRows.forEach(
+rowObject => {
+
+```
+  const oldCells =
+    Array.isArray(
+      rowObject
+    )
+      ? rowObject
+      : rowObject.data;
+
+
+  const output =
+    new Array(
+      mergedHeaders.length
+    ).fill("");
+
+
+  oldKeys.forEach(
+    (key, index) => {
+
+      const target =
+        mergedKeys.indexOf(
+          key
+        );
+
+
+      if (
+        target !== -1
+      ) {
+
+        output[target] =
+          oldCells[index] ??
+          "";
+
+      }
+
+    }
+  );
+
+
+  finalRows.push({
+
+    data:
+      output,
+
+    isStrikethrough:
+      !Array.isArray(
+        rowObject
+      ) &&
+      rowObject.isStrikethrough === true
+
+  });
+
+}
+```
+
+);
+
+/* Convert new rows. */
+
+newRows.forEach(
+rowObject => {
+
+```
+  const newCells =
+    Array.isArray(
+      rowObject
+    )
+      ? rowObject
+      : rowObject.data;
+
+
+  const output =
+    new Array(
+      mergedHeaders.length
+    ).fill("");
+
+
+  newKeys.forEach(
+    (key, index) => {
+
+      const target =
+        mergedKeys.indexOf(
+          key
+        );
+
+
+      if (
+        target !== -1
+      ) {
+
+        output[target] =
+          newCells[index] ??
+          "";
+
+      }
+
+    }
+  );
+
+
+  finalRows.push({
+
+    data:
+      output,
+
+    isStrikethrough:
+      !Array.isArray(
+        rowObject
+      ) &&
+      rowObject.isStrikethrough === true
+
+  });
+
+}
+```
+
+);
+
+return {
+
+```
+headers:
+  mergedHeaders,
+
+rows:
+  finalRows
+```
+
+};
+
+}
+
+/* ============================================================
+CREATE HEADER KEYS
+============================================================ */
+
+function createHeaderKeys(
+headers
+) {
+
+const counts =
+new Map();
+
+return headers.map(
+header => {
+
+```
+  const normalized =
+    normalizeHeader(
+      displayHeaderName(
+        header
+      )
+    );
+
+
+  const current =
+    counts.get(
+      normalized
+    ) || 0;
+
+
+  counts.set(
+    normalized,
+    current + 1
+  );
+
+
+  return `${normalized}::${current}`;
+
+}
+```
+
+);
+
+}
+
+/* ============================================================
+FLASH ASSIGNEE HEADER TWICE
+============================================================ */
+
+function flashAssigneeHeader() {
+
+const headers =
+document.querySelectorAll(
+"#grid-output-view thead th"
+);
+
+if (
+!headers.length
+) {
+
+```
+return;
+```
+
+}
+
+const flashOnce = () => {
+
+```
+headers.forEach(
+  header => {
+
+    header.classList.remove(
+      "header-success-flash"
+    );
+
+    void header.offsetWidth;
+
+    header.classList.add(
+      "header-success-flash"
+    );
+
+  }
+);
+```
+
+};
+
+flashOnce();
+
+setTimeout(
+() => {
+
+```
+  flashOnce();
+
+},
+800
+```
+
+);
+
+setTimeout(
+() => {
+
+```
+  headers.forEach(
+    header => {
+
+      header.classList.remove(
+        "header-success-flash"
+      );
+
+    }
+  );
+
+},
+1600
+```
+
+);
+
+}
+
+/* ============================================================
+BUILD WORKBOOK TREE
+============================================================ */
+
+function rebuildWorkbookTree() {
+
+const container =
+document.getElementById(
+"workbook-tree-container"
+);
+
+container.innerHTML = "";
+
+const workbooks =
+Object.keys(
+projectDatabase
+);
+
+if (
+workbooks.length === 0
+) {
+
+```
+container.innerHTML = `
+
+  <div
+    style="
+      padding:10px;
+      color:var(--text-muted);
+    "
+  >
+    No datasets loaded.
+  </div>
+
+`;
+
+return;
+```
+
+}
+
+/* Calculate Assignee totals in one pass.
+The stored route already contains only
+the rows selected during extraction. */
+
+function getAssigneeStats(
+route
+) {
+
+```
+const headers =
+  route.headers || [];
+
+
+const rows =
+  route.rows || [];
+
+
+const assigneeIndex =
+  headers.findIndex(
+    header =>
+      isAssigneeHeader(
+        displayHeaderName(
+          header
+        )
+      )
+  );
+
+
+if (
+  assigneeIndex === -1
+) {
+
+  return [];
+
+}
+
+
+const counts =
+  new Map();
+
+
+rows.forEach(
+  rowObject => {
+
+    const cells =
+      Array.isArray(
+        rowObject
+      )
+        ? rowObject
+        : (
+            rowObject.data || []
+          );
+
+
+    const name =
+      String(
+        cells[
+          assigneeIndex
+        ] ?? ""
+      ).trim();
+
+
+    if (
+      !name
+    ) {
+
+      return;
+
+    }
+
+
+    counts.set(
+      name,
+      (
+        counts.get(
+          name
+        ) || 0
+      ) + 1
+    );
+
+  }
+);
+
+
+return Array.from(
+  counts.entries()
+);
+```
+
+}
+
+workbooks
+.sort(
+(a, b) =>
+a.localeCompare(
+b
+)
+)
+.forEach(
+mainKey => {
+
+```
+    const subMap =
+      projectDatabase[
+        mainKey
+      ] || {};
+
+
+    const subList =
+      Object.keys(
+        subMap
+      );
+
+
+    let sumTotal = 0;
+
+
+    subList.forEach(
+      subKey => {
+
+        sumTotal +=
+          (
+            subMap[
+              subKey
+            ].rows || []
+          ).length;
+
+      }
+    );
+
+
+    const node =
+      document.createElement(
+        "div"
+      );
+
+
+    node.className =
+      "tree-node";
+
+
+    node.innerHTML = `
+
+      <div class="tree-header">
+
+        <span>
+          📂 ${escapeHtml(mainKey)}
+        </span>
+
+        <span class="count-badge">
+          ${sumTotal} rows
+        </span>
+
+      </div>
+
+      <div class="tree-children"></div>
+
+    `;
+
+
+    const childrenContainer =
+      node.querySelector(
+        ".tree-children"
+      );
+
+
+    if (
+      subList.length === 0
+    ) {
+
+      childrenContainer.innerHTML = `
+
+        <div
+          style="
+            padding:6px;
+            color:var(--text-muted);
+            font-size:10px;
+          "
+        >
+          Empty folder
+        </div>
+
+      `;
+
+    }
+
+
+    subList.forEach(
+      subKey => {
+
+        const route =
+          subMap[
+            subKey
+          ];
+
+
+        const routeRows =
+          route.rows || [];
+
+
+        const rowVolume =
+          routeRows.length;
+
+
+        const strikeCount =
+          routeRows.filter(
+            row =>
+              row &&
+              row.isStrikethrough === true
+          ).length;
+
+
+        const assigneeStats =
+          getAssigneeStats(
+            route
+          );
+
+
+        const assigneeDisplay =
+          assigneeStats.length
+            ? assigneeStats
+                .map(
+                  ([
+                    name,
+                    count
+                  ]) => `
+
+                    <span
+                      class="count-badge"
+                      title="${escapeHtml(name)}"
+                    >
+                      ${escapeHtml(name)} · ${count}
+                    </span>
+
+                  `
+                )
+                .join("")
+            : `
+
+                <span
+                  class="count-badge"
+                >
+                  No Assignee
+                </span>
+
+              `;
+
+
+        const item =
+          document.createElement(
+            "div"
+          );
+
+
+        item.className =
+          `tree-item ${
+            activeMainSheet === mainKey &&
+            activeSubSheet === subKey
+              ? "active"
+              : ""
+          }`;
+
+
+        item.innerHTML = `
+
+          <span>
+            📄 ${escapeHtml(subKey)}
+          </span>
+
+          <div
+            class="tree-item-meta"
+            style="
+              display:flex;
+              align-items:center;
+              gap:5px;
+              flex-wrap:wrap;
+              justify-content:flex-end;
+            "
+          >
+
+            ${assigneeDisplay}
+
+            ${
+              strikeCount > 0
+                ? `
+
+                  <span
+                    class="count-badge"
+                    style="
+                      background:rgba(217,48,37,0.15);
+                      color:var(--danger);
+                    "
+                  >
+                    ☠ ${strikeCount}
+                  </span>
+
+                `
+                : ""
+            }
+
+            <span
+              class="count-badge"
+              title="Total rows"
+            >
+              ${rowVolume}
+            </span>
+
+            <button
+              class="btn-delete-node"
+              data-main="${escapeHtml(mainKey)}"
+              data-sub="${escapeHtml(subKey)}"
+              type="button"
+            >
+              ✕
+            </button>
+
+          </div>
+
+        `;
+
+
+        item.addEventListener(
+          "click",
+          () => {
+
+            switchViewContext(
+              mainKey,
+              subKey
+            );
+
+          }
+        );
+
+
+        const deleteButton =
+          item.querySelector(
+            ".btn-delete-node"
+          );
+
+
+        deleteButton.addEventListener(
+          "click",
+          event => {
+
+            event.stopPropagation();
+
+
+            const mainTarget =
+              event.currentTarget
+                .getAttribute(
+                  "data-main"
+                );
+
+
+            const subTarget =
+              event.currentTarget
+                .getAttribute(
+                  "data-sub"
+                );
+
+
+            if (
+              confirm(
+                `Delete route [${subTarget}] from [${mainTarget}]?`
+              )
+            ) {
+
+              delete projectDatabase[
+                mainTarget
+              ][
+                subTarget
+              ];
+
+
+              if (
+                Object.keys(
+                  projectDatabase[
+                    mainTarget
+                  ]
+                ).length === 0
+              ) {
+
+                delete projectDatabase[
+                  mainTarget
+                ];
+
+              }
+
+
+              localStorage.setItem(
+                "projectDatabase",
+                JSON.stringify(
+                  projectDatabase
+                )
+              );
+
+
+              if (
+                activeMainSheet ===
+                  mainTarget &&
+                activeSubSheet ===
+                  subTarget
+              ) {
+
+                document
+                  .getElementById(
+                    "btn-close-view"
+                  )
+                  .click();
+
+              }
+
+
+              updateDropdownMenu();
+
+              rebuildWorkbookTree();
+
+              calculateGlobalMetrics();
+
+            }
+
+          }
+        );
+
+
+        childrenContainer.appendChild(
+          item
+        );
+
+      }
+    );
+
+
+    container.appendChild(
+      node
+    );
+
+  }
+);
+```
+
+}
+
+/* ============================================================
+OPEN ROUTE
+============================================================ */
+
+async function switchViewContext(
+mainKey,
+subKey
+) {
+
+if (
+!projectDatabase[
+mainKey
+] ||
+!projectDatabase[
+mainKey
+][subKey]
+) {
+
+```
+return;
+```
+
+}
+
+loaderCancelled = true;
+
+loaderRunId++;
+
+activeMainSheet =
+mainKey;
+
+activeSubSheet =
+subKey;
+
+localStorage.setItem(
+"activeMainSheet",
+mainKey
+);
+
+localStorage.setItem(
+"activeSubSheet",
+subKey
+);
+
+document
+.getElementById(
+"view-navigation-row"
+)
+.classList.remove(
+"hidden"
+);
+
+document
+.getElementById(
+"view-title"
+)
+.innerHTML =
+`Folder: <b>${escapeHtml(mainKey)}</b> ➔ Route: <b>${escapeHtml(subKey)}</b>`;
+
+const completed =
+await runActivityLoader(
+"route",
+mainKey,
+subKey
+);
+
+if (!completed) {
+
+```
+return;
+```
+
+}
+
+const routeData =
+projectDatabase[
+mainKey
+][subKey];
+
+renderSpreadsheetViewGrid(
+routeData
+);
+
+calculateGlobalMetrics();
+
+rebuildWorkbookTree();
+
+setActivityUrl(
+"viewing",
+mainKey,
+subKey
+);
+
+hideLoader();
+
+}
+
+/* ============================================================
+RENDER SPREADSHEET
+============================================================ */
+
+function renderSpreadsheetViewGrid(
+sheetObject
+) {
+
+const display =
+document.getElementById(
+"grid-output-view"
+);
+
+const rangeIndicator =
+document.getElementById(
+"view-range-indicator"
+);
+
+if (
+!sheetObject
+) {
+
+```
+display.innerHTML = `
+
+  <div style="padding:12px;color:var(--text-dark);">
+    No workspace data found.
+  </div>
+
+`;
+
+rangeIndicator.textContent = "";
+
+return;
+```
+
+}
+
+const headers =
+sheetObject.headers || [];
+
+const rows =
+sheetObject.rows || [];
+
+if (
+!rows.length
+) {
+
+```
+display.innerHTML = `
+
+  <div style="padding:12px;color:var(--text-dark);">
+    No row data present in this route.
+  </div>
+
+`;
+
+rangeIndicator.textContent = "";
+
+return;
+```
+
+}
+
+rangeIndicator.textContent =
+`Displaying total ${rows.length} record entries.`;
+
+let tableHtml =
+`<table><thead><tr>`;
+
+headers.forEach(
+header => {
+
+```
+  const cleanHeader =
+    displayHeaderName(
+      header
+    );
+
+
+  const isAssignee =
+    isAssigneeHeader(
+      cleanHeader
+    );
+
+
+  tableHtml += `
+
+    <th
+      title="${escapeHtml(cleanHeader)}"
+      ${
+        isAssignee
+          ? 'data-assignee-header="true"'
+          : ""
+      }
+    >
+      ${escapeHtml(cleanHeader)}
+    </th>
+
+  `;
+
+}
+```
+
+);
+
+tableHtml +=
+`</tr></thead><tbody>`;
+
+rows.forEach(
+rowObject => {
+
+```
+  const rowCells =
+    Array.isArray(
+      rowObject
+    )
+      ? rowObject
+      : (
+          rowObject.data || []
+        );
+
+
+  const isStriked =
+    !Array.isArray(
+      rowObject
+    ) &&
+    rowObject.isStrikethrough === true;
+
+
+  tableHtml += `
+
+    <tr
+      class="${
+        isStriked
+          ? "row-strikethrough"
+          : ""
+      }"
+    >
+
+  `;
+
+
+  for (
+    let index = 0;
+
+    index <
+    headers.length;
+
+    index++
+  ) {
+
+    const value =
+      rowCells[index] !== undefined
+        ? rowCells[index]
+        : "";
+
+
+    tableHtml += `
+
+      <td
+        title="${escapeHtml(value)}"
+      >
+        ${escapeHtml(value)}
+      </td>
+
+    `;
+
+  }
+
+
+  tableHtml +=
+    `</tr>`;
+
+}
+```
+
+);
+
+tableHtml +=
+`</tbody></table>`;
+
+display.innerHTML =
+tableHtml;
+
+}
+
+/* ============================================================
+OPEN GOOGLE SHEETS
+============================================================ */
+
+document
+.getElementById(
+"btn-create-gsheet"
+)
+.addEventListener(
+"click",
+() => {
+
+```
+  if (
+    !verifyOnlineStatus()
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    !activeMainSheet ||
+    !activeSubSheet ||
+    !projectDatabase[
+      activeMainSheet
+    ] ||
+    !projectDatabase[
+      activeMainSheet
+    ][activeSubSheet]
+  ) {
+
+    return;
+
+  }
+
+
+  const workbook =
+    projectDatabase[
+      activeMainSheet
+    ][activeSubSheet];
+
+
+  const headers =
+    workbook.headers || [];
+
+
+  const headerText =
+    headers
+      .map(
+        header =>
+          displayHeaderName(
+            header
+          )
+      )
+      .join("\t");
+
+
+  const rows =
+    (workbook.rows || [])
+      .map(
+        rowObject => {
+
+          const cells =
+            Array.isArray(
+              rowObject
+            )
+              ? rowObject
+              : (
+                  rowObject.data ||
+                  []
+                );
+
+
+          return headers
+            .map(
+              (
+                header,
+                index
+              ) =>
+                cells[index] !==
+                  undefined
+                  ? cells[index]
+                  : ""
+            )
+            .join("\t");
+
+        }
+      );
+
+
+  const fullText =
+    [
+      headerText,
+      ...rows
+    ].join("\n");
+
+
+  navigator.clipboard
+    .writeText(
+      fullText
+    )
+    .then(
+      () => {
+
+        alert(
+          "Formatted data copied to clipboard! Opening Google Sheets... Press Ctrl+V to paste."
+        );
+
+
+        window.open(
+          "https://sheets.new",
+          "_blank"
+        );
+
+      }
+    )
+    .catch(
+      error => {
+
+        console.error(
+          "Clipboard error:",
+          error
+        );
+
+
+        alert(
+          "Unable to copy automatically. Please allow clipboard access."
+        );
+
+      }
+    );
+
+}
+```
+
+);
+
+/* ============================================================
+EXPORT CSV
+============================================================ */
+
+document
+.getElementById(
+"btn-export-csv"
+)
+.addEventListener(
+"click",
+() => {
+
+```
+  if (
+    !verifyOnlineStatus()
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    !activeMainSheet ||
+    !activeSubSheet ||
+    !projectDatabase[
+      activeMainSheet
+    ] ||
+    !projectDatabase[
+      activeMainSheet
+    ][activeSubSheet]
+  ) {
+
+    return;
+
+  }
+
+
+  const workbook =
+    projectDatabase[
+      activeMainSheet
+    ][activeSubSheet];
+
+
+  const sanitize =
+    value => {
+
+      if (
+        value === null ||
+        value === undefined
+      ) {
+
+        return '""';
+
+      }
+
+
+      return `"${String(value)
+        .replace(
+          /"/g,
+          '""'
+        )}"`;
+
+    };
+
+
+  const headers =
+    workbook.headers || [];
+
+
+  const headerRow =
+    headers
+      .map(
+        header =>
+          sanitize(
+            displayHeaderName(
+              header
+            )
+          )
+      )
+      .join(",");
+
+
+  const dataRows =
+    (workbook.rows || [])
+      .map(
+        rowObject => {
+
+          const cells =
+            Array.isArray(
+              rowObject
+            )
+              ? rowObject
+              : (
+                  rowObject.data ||
+                  []
+                );
+
+
+          return headers
+            .map(
+              (
+                header,
+                index
+              ) =>
+                sanitize(
+                  cells[index] !==
+                    undefined
+                    ? cells[index]
+                    : ""
+                )
+            )
+            .join(",");
+
+        }
+      );
+
+
+  const csv =
+    [
+      headerRow,
+      ...dataRows
+    ].join("\n");
+
+
+  const blob =
+    new Blob(
+      [csv],
+      {
+        type:
+          "text/csv;charset=utf-8;"
+      }
+    );
+
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+
+  link.href =
+    URL.createObjectURL(
+      blob
+    );
+
+
+  link.download =
+    `${activeMainSheet}_${activeSubSheet}.csv`
+      .replace(
+        /[^a-z0-9_.-]/gi,
+        "_"
+      )
+      .toLowerCase();
+
+
+  document.body.appendChild(
+    link
+  );
+
+
+  link.click();
+
+
+  document.body.removeChild(
+    link
+  );
+
+
+  setTimeout(
+    () =>
+      URL.revokeObjectURL(
+        link.href
+      ),
+    1000
+  );
+
+}
+```
+
+);
+
+/* ============================================================
+GLOBAL METRICS
+============================================================ */
+
+function calculateGlobalMetrics() {
+
+let folders = 0;
+
+let routes = 0;
+
+let records = 0;
+
+let strikethrough = 0;
+
+Object.keys(
+projectDatabase
+).forEach(
+mainKey => {
+
+```
+  folders++;
+
+
+  const folder =
+    projectDatabase[
+      mainKey
+    ] || {};
+
+
+  Object.keys(
+    folder
+  ).forEach(
+    subKey => {
+
+      routes++;
+
+
+      const route =
+        folder[
+          subKey
+        ] || {};
+
+
+      const rows =
+        route.rows || [];
+
+
+      records +=
+        rows.length;
+
+
+      strikethrough +=
+        rows.filter(
+          rowObject => {
+
+            return (
+              !Array.isArray(
+                rowObject
+              ) &&
+              rowObject &&
+              rowObject.isStrikethrough === true
+            );
+
+          }
+        ).length;
+
+    }
+  );
+
+}
+```
+
+);
+
+let activeFolderRecords = 0;
+
+if (
+activeMainSheet &&
+projectDatabase[
+activeMainSheet
+]
+) {
+
+```
+const activeFolder =
+  projectDatabase[
+    activeMainSheet
+  ] || {};
+
+
+Object.keys(
+  activeFolder
+).forEach(
+  subKey => {
+
+    const route =
+      activeFolder[
+        subKey
+      ] || {};
+
+
+    activeFolderRecords +=
+      (
+        route.rows || []
+      ).length;
+
+  }
+);
+```
+
+}
+
+let activeSubRouteRecords = 0;
+
+let activeSubRouteStrikes = 0;
+
+if (
+activeMainSheet &&
+activeSubSheet &&
+projectDatabase[
+activeMainSheet
+] &&
+projectDatabase[
+activeMainSheet
+][
+activeSubSheet
+]
+) {
+
+```
+const activeRoute =
+  projectDatabase[
+    activeMainSheet
+  ][
+    activeSubSheet
+  ] || {};
+
+
+const activeRows =
+  activeRoute.rows || [];
+
+
+activeSubRouteRecords =
+  activeRows.length;
+
+
+activeSubRouteStrikes =
+  activeRows.filter(
+    rowObject => {
+
+      return (
+        !Array.isArray(
+          rowObject
+        ) &&
+        rowObject &&
+        rowObject.isStrikethrough === true
+      );
+
+    }
+  ).length;
+```
+
+}
+
+const grandTotal =
+document.getElementById(
+"stat-grand-total"
+);
+
+const mainTotal =
+document.getElementById(
+"stat-main-total"
+);
+
+const subTotal =
+document.getElementById(
+"stat-sub-total"
+);
+
+const strikeTotal =
+document.getElementById(
+"stat-strike-total"
+);
+
+if (
+grandTotal
+) {
+
+```
+grandTotal.textContent =
+  `${records} Rows`;
+```
+
+}
+
+if (
+mainTotal
+) {
+
+```
+mainTotal.textContent =
+  `${activeFolderRecords} Rows`;
+```
+
+}
+
+if (
+subTotal
+) {
+
+```
+subTotal.textContent =
+  `${activeSubRouteRecords} Rows`;
+```
+
+}
+
+if (
+strikeTotal
+) {
+
+```
+const displayedStrikes =
+  activeMainSheet &&
+  activeSubSheet
+    ? activeSubRouteStrikes
+    : strikethrough;
+
+
+strikeTotal.textContent =
+  `${displayedStrikes} Rows`;
+```
+
+}
+
+const folderMetric =
+document.getElementById(
+"metric-folder-count"
+);
+
+const routeMetric =
+document.getElementById(
+"metric-route-count"
+);
+
+const recordMetric =
+document.getElementById(
+"metric-record-count"
+);
+
+const strikeMetric =
+document.getElementById(
+"metric-strike-count"
+);
+
+if (
+folderMetric
+) {
+
+```
+folderMetric.textContent =
+  folders;
+```
+
+}
+
+if (
+routeMetric
+) {
+
+```
+routeMetric.textContent =
+  routes;
+```
+
+}
+
+if (
+recordMetric
+) {
+
+```
+recordMetric.textContent =
+  records;
+```
+
+}
+
+if (
+strikeMetric
+) {
+
+```
+strikeMetric.textContent =
+  strikethrough;
+```
+
+}
+
+}
