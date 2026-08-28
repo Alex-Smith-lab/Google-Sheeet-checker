@@ -1,7 +1,7 @@
 /* ============================================================
-   SHEET TASK EXTRACTOR PRO
-   DYNAMIC HEADER VERSION
-   ============================================================ */
+SHEET TASK EXTRACTOR PRO
+DYNAMIC HEADER VERSION
+============================================================ */
 
 let projectDatabase = {};
 
@@ -30,3714 +30,868 @@ let loaderCancelled = false;
 
 let loaderRunId = 0;
 
-
 /* ============================================================
-   LOADER STAGES
-   ============================================================ */
+LOADER STAGES
+============================================================ */
 
 const loaderStages = [
 
-  [
-    "reading",
-    "Reading data",
-    "Reading the selected data stream...",
-    18
-  ],
+[
+"reading",
+"Reading data",
+"Reading the selected data stream...",
+18
+],
 
-  [
-    "analysing",
-    "Analysing data",
-    "Detecting headers, Assignee and row structure...",
-    38
-  ],
+[
+"analysing",
+"Analysing data",
+"Detecting headers, Assignee and row structure...",
+38
+],
 
-  [
-    "arranging",
-    "Arranging data",
-    "Aligning records using the pasted headers...",
-    60
-  ],
+[
+"arranging",
+"Arranging data",
+"Aligning records using the pasted headers...",
+60
+],
 
-  [
-    "storing",
-    "Storing data to the web",
-    "Saving the processed records to this workspace...",
-    82
-  ],
+[
+"storing",
+"Storing data to the web",
+"Saving the processed records to this workspace...",
+82
+],
 
-  [
-    "success",
-    "Successfully extracted",
-    "The data is ready and the workspace is opening.",
-    100
-  ]
+[
+"success",
+"Successfully extracted",
+"The data is ready and the workspace is opening.",
+100
+]
 
 ];
 
-
 /* ============================================================
-   BASIC HELPERS
-   ============================================================ */
+BASIC HELPERS
+============================================================ */
 
 function wait(ms) {
 
-  return new Promise(
-    resolve => setTimeout(resolve, ms)
-  );
+return new Promise(
+resolve => setTimeout(resolve, ms)
+);
 
 }
-
 
 function escapeHtml(value) {
 
-  return String(value ?? "").replace(
-    /[&<>"']/g,
+return String(value ?? "").replace(
+/[&<>"']/g,
 
-    char => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    }[char])
-  );
+```
+char => ({
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#039;"
+}[char])
+```
+
+);
 
 }
 
-
 /* ============================================================
-   HEADER NORMALIZATION
-   ============================================================ */
+HEADER NORMALIZATION
+============================================================ */
 
 function normalizeHeader(value) {
 
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/[_\-\/]+/g, " ")
-    .trim();
+return String(value ?? "")
+.trim()
+.toLowerCase()
+.replace(/\s+/g, " ")
+.replace(/[_-/]+/g, " ")
+.trim();
 
 }
 
+/* ============================================================
+ASSIGNEE / ANNOTATOR / COWORKER HEADER DETECTION
+============================================================ */
 
 function isAssigneeHeader(value) {
 
-  const normalized =
-    normalizeHeader(value);
+const normalized =
+normalizeHeader(value);
 
-  if (!normalized) {
-    return false;
-  }
+if (!normalized) {
+return false;
+}
 
-  if (normalized === "assignee") {
-    return true;
-  }
+/* ------------------------------------------------------------
+DIRECT ASSIGNEE HEADERS
+------------------------------------------------------------ */
 
-  if (
-    normalized === "assigned to" ||
-    normalized === "assigned user" ||
-    normalized === "assigned person"
-  ) {
-    return true;
-  }
+if (
+normalized === "assignee" ||
+normalized === "assignees"
+) {
 
-  return (
-    normalized.startsWith("assignee ") ||
-    normalized.startsWith("assigned ")
-  );
+```
+return true;
+```
 
 }
 
+/* ------------------------------------------------------------
+ANNOTATOR HEADERS
+------------------------------------------------------------ */
+
+if (
+normalized === "annotator" ||
+normalized === "annotators"
+) {
+
+```
+return true;
+```
+
+}
+
+/* ------------------------------------------------------------
+COWORKER HEADERS
+------------------------------------------------------------ */
+
+if (
+normalized === "coworker" ||
+normalized === "coworkers"
+) {
+
+```
+return true;
+```
+
+}
+
+/* ------------------------------------------------------------
+NAME(S) OF ASSIGNEE HEADERS
+------------------------------------------------------------ */
+
+if (
+normalized === "name of assignee" ||
+normalized === "names of assignee" ||
+normalized === "name of assignees" ||
+normalized === "names of assignees"
+) {
+
+```
+return true;
+```
+
+}
+
+/* ------------------------------------------------------------
+ASSIGNED-TO VARIATIONS
+------------------------------------------------------------ */
+
+if (
+normalized === "assigned to" ||
+normalized === "assigned user" ||
+normalized === "assigned users" ||
+normalized === "assigned person" ||
+normalized === "assigned persons"
+) {
+
+```
+return true;
+```
+
+}
+
+/* ------------------------------------------------------------
+EXISTING PREFIX DETECTION
+------------------------------------------------------------ */
+
+if (
+normalized.startsWith("assignee ") ||
+normalized.startsWith("assignees ")
+) {
+
+```
+return true;
+```
+
+}
+
+if (
+normalized.startsWith("annotator ") ||
+normalized.startsWith("annotators ")
+) {
+
+```
+return true;
+```
+
+}
+
+if (
+normalized.startsWith("coworker ") ||
+normalized.startsWith("coworkers ")
+) {
+
+```
+return true;
+```
+
+}
+
+if (
+normalized.startsWith("assigned ")
+) {
+
+```
+return true;
+```
+
+}
+
+/* ------------------------------------------------------------
+NAME(S) + ASSIGNEE VARIATIONS
+------------------------------------------------------------ */
+
+if (
+normalized.includes("name of assignee") ||
+normalized.includes("names of assignee") ||
+normalized.includes("name of assignees") ||
+normalized.includes("names of assignees")
+) {
+
+```
+return true;
+```
+
+}
+
+return false;
+
+}
 
 /* ============================================================
-   ROUTE HEADER DETECTION
-   No master header list is used.
-   ============================================================ */
+ROUTE HEADER DETECTION
+No master header list is used.
+============================================================ */
 
 function findRouteColumn(headers) {
 
-  for (
-    let i = 0;
-    i < headers.length;
-    i++
-  ) {
+for (
+let i = 0;
+i < headers.length;
+i++
+) {
 
-    const normalized =
-      normalizeHeader(headers[i]);
+```
+const normalized =
+  normalizeHeader(headers[i]);
 
-    if (
-      normalized.includes("bus route") ||
-      normalized === "route" ||
-      normalized.includes("route name") ||
-      normalized.includes("route identifier")
-    ) {
+if (
+  normalized.includes("bus route") ||
+  normalized === "route" ||
+  normalized.includes("route name") ||
+  normalized.includes("route identifier")
+) {
 
-      return i;
+  return i;
 
-    }
-
-  }
-
-  return -1;
+}
+```
 
 }
 
+return -1;
+
+}
 
 /* ============================================================
-   URL ACTIVITY
-   ============================================================ */
+URL ACTIVITY
+============================================================ */
 
 function setActivityUrl(
-  state,
-  folder = "",
-  route = ""
+state,
+folder = "",
+route = ""
 ) {
 
-  const params =
-    new URLSearchParams();
+const params =
+new URLSearchParams();
 
-  if (state) {
-    params.set("activity", state);
-  }
-
-  if (folder) {
-    params.set("folder", folder);
-  }
-
-  if (route) {
-    params.set("route", route);
-  }
-
-  try {
-
-    history.replaceState(
-      {
-        state,
-        folder,
-        route
-      },
-
-      "",
-
-      `${location.pathname}${
-        params.toString()
-          ? "?" + params.toString()
-          : ""
-      }`
-    );
-
-  } catch (error) {
-
-    console.warn(
-      "Unable to update activity URL:",
-      error
-    );
-
-  }
-
-
-  const titles = {
-
-    opening:
-      `Opening ${route} — ${folder} | Sheet Task Extractor Pro`,
-
-    processing:
-      `Processing data — ${folder} | Sheet Task Extractor Pro`,
-
-    viewing:
-      `${route} — ${folder} | Sheet Task Extractor Pro`,
-
-    reading:
-      `Reading data — ${route} | Sheet Task Extractor Pro`,
-
-    analysing:
-      `Analysing data — ${route} | Sheet Task Extractor Pro`,
-
-    arranging:
-      `Arranging data — ${route} | Sheet Task Extractor Pro`,
-
-    storing:
-      `Storing data — ${route} | Sheet Task Extractor Pro`,
-
-    success:
-      `Successfully extracted — ${route} | Sheet Task Extractor Pro`
-
-  };
-
-
-  document.title =
-    titles[state] ||
-    "Sheet Task Extractor Pro - Direct Ingest Workspace";
-
+if (state) {
+params.set("activity", state);
 }
 
-
-/* ============================================================
-   ONLINE STATUS
-   ============================================================ */
-
-function verifyOnlineStatus() {
-
-  const blocker =
-    document.getElementById(
-      "global-offline-blocker"
-    );
-
-  if (!navigator.onLine) {
-
-    blocker.classList.remove(
-      "hidden"
-    );
-
-    return false;
-
-  }
-
-  blocker.classList.add(
-    "hidden"
-  );
-
-  return true;
-
+if (folder) {
+params.set("folder", folder);
 }
 
-
-/* ============================================================
-   LOADER
-   ============================================================ */
-
-function showLoader(
-  mode,
-  folder = "",
-  route = ""
-) {
-
-  loaderMode = mode;
-
-  loaderCancelled = false;
-
-  const overlay =
-    document.getElementById(
-      "view-loader-overlay"
-    );
-
-  if (!overlay) {
-    return;
-  }
-
-  overlay.classList.remove(
-    "hidden",
-    "success-state"
-  );
-
-
-  const kicker =
-    document.getElementById(
-      "view-loader-kicker"
-    );
-
-  if (kicker) {
-
-    kicker.textContent =
-      mode === "route"
-        ? "ROUTE WORKSPACE"
-        : "DATA WORKFLOW";
-
-  }
-
-
-  const routeLabel =
-    document.getElementById(
-      "loader-route-name"
-    );
-
-  if (routeLabel) {
-
-    if (folder || route) {
-
-      routeLabel.textContent =
-        `${mode === "route" ? "Opening" : "Processing"}: ${
-          folder
-        }${route ? " / " + route : ""}`;
-
-      routeLabel.classList.remove(
-        "hidden"
-      );
-
-    } else {
-
-      routeLabel.classList.add(
-        "hidden"
-      );
-
-      routeLabel.textContent = "";
-
-    }
-
-  }
-
-
-  const closeButton =
-    document.getElementById(
-      "btn-close-loader"
-    );
-
-  if (closeButton) {
-
-    closeButton.disabled = false;
-
-  }
-
+if (route) {
+params.set("route", route);
 }
-
-
-function hideLoader() {
-
-  const overlay =
-    document.getElementById(
-      "view-loader-overlay"
-    );
-
-  if (overlay) {
-
-    overlay.classList.add(
-      "hidden"
-    );
-
-    overlay.classList.remove(
-      "success-state"
-    );
-
-  }
-
-
-  const closeButton =
-    document.getElementById(
-      "btn-close-loader"
-    );
-
-  if (closeButton) {
-
-    closeButton.disabled = false;
-
-  }
-
-}
-
-
-function cancelLoader() {
-
-  loaderCancelled = true;
-
-  loaderRunId++;
-
-  hideLoader();
-
-  setActivityUrl(
-    "",
-    "",
-    ""
-  );
-
-}
-
-
-function setLoaderStage(key) {
-
-  const index =
-    loaderStages.findIndex(
-      stage => stage[0] === key
-    );
-
-  if (index < 0) {
-    return;
-  }
-
-  const stage =
-    loaderStages[index];
-
-
-  const title =
-    document.getElementById(
-      "view-loader-text"
-    );
-
-  const detail =
-    document.getElementById(
-      "view-loader-detail"
-    );
-
-  const progress =
-    document.getElementById(
-      "view-loader-progress"
-    );
-
-
-  if (title) {
-
-    title.textContent =
-      stage[1];
-
-  }
-
-
-  if (detail) {
-
-    detail.textContent =
-      stage[2];
-
-  }
-
-
-  if (progress) {
-
-    progress.style.width =
-      stage[3] + "%";
-
-  }
-
-
-  document
-    .querySelectorAll(
-      ".loader-step"
-    )
-    .forEach(
-      element => {
-
-        const stepKey =
-          element.dataset.step;
-
-        const stepIndex =
-          loaderStages.findIndex(
-            stageItem =>
-              stageItem[0] === stepKey
-          );
-
-
-        element.classList.remove(
-          "active",
-          "done",
-          "success"
-        );
-
-
-        if (
-          key === "success" &&
-          stepKey === "success"
-        ) {
-
-          element.classList.add(
-            "success"
-          );
-
-        } else if (
-          stepIndex < index
-        ) {
-
-          element.classList.add(
-            "done"
-          );
-
-        } else if (
-          stepIndex === index
-        ) {
-
-          element.classList.add(
-            "active"
-          );
-
-        }
-
-      }
-    );
-
-
-  const overlay =
-    document.getElementById(
-      "view-loader-overlay"
-    );
-
-  if (overlay) {
-
-    overlay.classList.toggle(
-      "success-state",
-      key === "success"
-    );
-
-  }
-
-}
-
-
-async function runActivityLoader(
-  mode,
-  folder = "",
-  route = ""
-) {
-
-  const myRunId =
-    ++loaderRunId;
-
-  showLoader(
-    mode,
-    folder,
-    route
-  );
-
-
-  for (
-    const stage of loaderStages
-  ) {
-
-    if (
-      loaderCancelled ||
-      myRunId !== loaderRunId
-    ) {
-
-      return false;
-
-    }
-
-
-    setLoaderStage(
-      stage[0]
-    );
-
-
-    setActivityUrl(
-      stage[0],
-      folder,
-      route
-    );
-
-
-    if (
-      stage[0] !== "success"
-    ) {
-
-      await wait(
-        mode === "route"
-          ? 180
-          : 240
-      );
-
-    }
-
-  }
-
-
-  await wait(
-    mode === "route"
-      ? 220
-      : 350
-  );
-
-
-  if (
-    loaderCancelled ||
-    myRunId !== loaderRunId
-  ) {
-
-    return false;
-
-  }
-
-
-  return true;
-
-}
-
-
-/* ============================================================
-   INITIAL LOAD
-   ============================================================ */
-
-document.addEventListener(
-  "DOMContentLoaded",
-  () => {
-
-    verifyOnlineStatus();
-
-
-    const savedData =
-      localStorage.getItem(
-        "projectDatabase"
-      );
-
-
-    const savedTheme =
-      localStorage.getItem(
-        "appTheme"
-      );
-
-
-    const savedMain =
-      localStorage.getItem(
-        "activeMainSheet"
-      );
-
-
-    const savedSub =
-      localStorage.getItem(
-        "activeSubSheet"
-      );
-
-
-    if (savedData) {
-
-      try {
-
-        projectDatabase =
-          JSON.parse(
-            savedData
-          ) || {};
-
-      } catch (error) {
-
-        console.error(
-          "Unable to restore database:",
-          error
-        );
-
-        projectDatabase = {};
-
-      }
-
-    }
-
-
-    if (
-      savedTheme === "dark"
-    ) {
-
-      document.documentElement
-        .setAttribute(
-          "data-theme",
-          "dark"
-        );
-
-
-      const toggleButton =
-        document.getElementById(
-          "theme-toggle-btn"
-        );
-
-
-      if (toggleButton) {
-
-        toggleButton.textContent =
-          "☼ Light Mode";
-
-      }
-
-    }
-
-
-    updateDropdownMenu();
-
-    rebuildWorkbookTree();
-
-
-    if (
-      savedMain &&
-      savedSub &&
-      projectDatabase[savedMain] &&
-      projectDatabase[savedMain][savedSub]
-    ) {
-
-      activeMainSheet =
-        savedMain;
-
-      activeSubSheet =
-        savedSub;
-
-
-      document
-        .getElementById(
-          "view-navigation-row"
-        )
-        .classList.remove(
-          "hidden"
-        );
-
-
-      document
-        .getElementById(
-          "view-title"
-        )
-        .innerHTML =
-          `Folder: <b>${escapeHtml(savedMain)}</b> ➔ Route: <b>${escapeHtml(savedSub)}</b>`;
-
-
-      renderSpreadsheetViewGrid(
-        projectDatabase[savedMain][savedSub]
-      );
-
-      setActivityUrl(
-        "viewing",
-        savedMain,
-        savedSub
-      );
-
-    }
-
-
-    calculateGlobalMetrics();
-
-  }
-);
-
-
-/* ============================================================
-   NETWORK
-   ============================================================ */
-
-window.addEventListener(
-  "offline",
-  verifyOnlineStatus
-);
-
-window.addEventListener(
-  "online",
-  verifyOnlineStatus
-);
-
-
-/* ============================================================
-   PASTE EVENT
-   FAST LARGE-DATA VERSION
-   ============================================================ */
-
-document
-  .getElementById(
-    "paste-input"
-  )
-  .addEventListener(
-    "paste",
-    event => {
-
-      clipboardHtmlBuffer = "";
-
-      strikethroughRowCache = null;
-
-
-      if (
-        event.clipboardData
-      ) {
-
-        const htmlData =
-          event.clipboardData.getData(
-            "text/html"
-          );
-
-
-        if (
-          htmlData
-        ) {
-
-          clipboardHtmlBuffer =
-            htmlData;
-
-        }
-
-      }
-
-
-      setTimeout(
-        parsePastedStreamForAssignees,
-        50
-      );
-
-    }
-  );
-
-
-let assigneeParseTimer = null;
-
-
-document
-  .getElementById(
-    "paste-input"
-  )
-  .addEventListener(
-    "input",
-    () => {
-
-      clearTimeout(
-        assigneeParseTimer
-      );
-
-
-      assigneeParseTimer =
-        setTimeout(
-          () => {
-
-            parsePastedStreamForAssignees();
-
-          },
-          150
-        );
-
-    }
-  );
-
-
-/* ============================================================
-   PARSE PASTED DATA
-   ============================================================ */
-
-function parsePastedStreamForAssignees() {
-
-  const rawText =
-    document.getElementById(
-      "paste-input"
-    ).value;
-
-
-  const container =
-    document.getElementById(
-      "assignee-selector-box"
-    );
-
-
-  const pillsList =
-    document.getElementById(
-      "assignee-pills-list"
-    );
-
-
-  if (
-    !rawText.trim()
-  ) {
-
-    container.classList.add(
-      "hidden"
-    );
-
-    detectedAssignees = [];
-
-    selectedAssignees =
-      new Set();
-
-    return;
-
-  }
-
-
-  const lines =
-    rawText
-      .split(/\r?\n/)
-      .filter(
-        line =>
-          line.length > 0
-      );
-
-
-  if (
-    !lines.length
-  ) {
-
-    container.classList.add(
-      "hidden"
-    );
-
-    return;
-
-  }
-
-
-  parsedRowsStream =
-    lines.map(
-      line =>
-        line
-          .split("\t")
-          .map(
-            cell =>
-              cell.trim()
-          )
-    );
-
-
-  /*
-   * Find the actual header row.
-   *
-   * We inspect the first 10 rows.
-   * No masterHeaders are used.
-   */
-
-  detectedHeaderRowIdx = -1;
-
-  detectedAssigneeColIdx = -1;
-
-  detectedHeaders = [];
-
-
-  for (
-    let rowIndex = 0;
-
-    rowIndex <
-    Math.min(
-      parsedRowsStream.length,
-      10
-    );
-
-    rowIndex++
-  ) {
-
-    const row =
-      parsedRowsStream[
-        rowIndex
-      ];
-
-
-    const assigneeIndex =
-      row.findIndex(
-        isAssigneeHeader
-      );
-
-
-    if (
-      assigneeIndex !== -1
-    ) {
-
-      detectedHeaderRowIdx =
-        rowIndex;
-
-      detectedAssigneeColIdx =
-        assigneeIndex;
-
-      detectedHeaders =
-        row.map(
-          cell =>
-            cell.trim()
-        );
-
-      break;
-
-    }
-
-  }
-
-
-  /*
-   * If no Assignee header is found,
-   * still try to identify a sensible
-   * header row.
-   */
-
-  if (
-    detectedHeaderRowIdx === -1
-  ) {
-
-    const candidateIndex =
-      parsedRowsStream.findIndex(
-        row =>
-          row.length >= 2 &&
-          row.some(
-            cell =>
-              normalizeHeader(cell) ===
-                "location name" ||
-              normalizeHeader(cell) ===
-                "location description" ||
-              normalizeHeader(cell) ===
-                "video name" ||
-              normalizeHeader(cell) ===
-                "site id"
-          )
-      );
-
-
-    if (
-      candidateIndex !== -1
-    ) {
-
-      detectedHeaderRowIdx =
-        candidateIndex;
-
-      detectedHeaders =
-        parsedRowsStream[
-          candidateIndex
-        ].map(
-          cell =>
-            cell.trim()
-        );
-
-    } else {
-
-      detectedHeaderRowIdx = 0;
-
-      detectedHeaders =
-        parsedRowsStream[0].map(
-          cell =>
-            cell.trim()
-        );
-
-    }
-
-  }
-
-
-  /*
-   * Search Assignee again from
-   * the selected actual header.
-   */
-
-  if (
-    detectedHeaders.length
-  ) {
-
-    detectedAssigneeColIdx =
-      detectedHeaders.findIndex(
-        isAssigneeHeader
-      );
-
-  }
-
-
-  /*
-   * Extract unique assignees.
-   */
-
-  const assigneeSet =
-    new Set();
-
-
-  const startRow =
-    detectedHeaderRowIdx + 1;
-
-
-  if (
-    detectedAssigneeColIdx !== -1
-  ) {
-
-    for (
-      let rowIndex = startRow;
-
-      rowIndex <
-      parsedRowsStream.length;
-
-      rowIndex++
-    ) {
-
-      const row =
-        parsedRowsStream[
-          rowIndex
-        ];
-
-
-      const value =
-        row[
-          detectedAssigneeColIdx
-        ];
-
-
-      if (
-        value &&
-        value.trim()
-      ) {
-
-        const cleanValue =
-          value.trim();
-
-
-        if (
-          !isAssigneeHeader(
-            cleanValue
-          )
-        ) {
-
-          assigneeSet.add(
-            cleanValue
-          );
-
-        }
-
-      }
-
-    }
-
-  }
-
-
-  detectedAssignees =
-    Array.from(
-      assigneeSet
-    );
-
-
-  /*
-   * Preserve the user's current Assignee selection
-   * when the parser runs again before processing.
-   *
-   * If there is no existing selection, select all
-   * Assignees by default.
-   */
-
-  const previousSelection =
-    new Set(
-      selectedAssignees
-    );
-
-
-  if (
-    previousSelection.size > 0
-  ) {
-
-    const preservedSelection =
-      detectedAssignees.filter(
-        name =>
-          previousSelection.has(
-            name
-          )
-      );
-
-
-    selectedAssignees =
-      new Set(
-        preservedSelection.length
-          ? preservedSelection
-          : detectedAssignees
-      );
-
-  } else {
-
-    selectedAssignees =
-      new Set(
-        detectedAssignees
-      );
-
-  }
-
-
-  /*
-   * Auto detect route from actual
-   * pasted header if available.
-   */
-
-  const routeColumn =
-    findRouteColumn(
-      detectedHeaders
-    );
-
-
-  if (
-    routeColumn !== -1 &&
-    parsedRowsStream.length >
-      detectedHeaderRowIdx + 1
-  ) {
-
-    const detectedRoute =
-      parsedRowsStream[
-        detectedHeaderRowIdx + 1
-      ][routeColumn] || "";
-
-
-    const routeInput =
-      document.getElementById(
-        "sub-sheet-input"
-      );
-
-
-    if (
-      routeInput &&
-      !routeInput.value.trim() &&
-      detectedRoute.trim()
-    ) {
-
-      routeInput.value =
-        detectedRoute.trim();
-
-    }
-
-  }
-
-
-  /*
-   * Render Assignee selector.
-   */
-
-  renderAssigneeSelector();
-
-}
-
-
-/* ============================================================
-   ASSIGNEE SELECTOR
-   ============================================================ */
-
-function renderAssigneeSelector() {
-
-  const container =
-    document.getElementById(
-      "assignee-selector-box"
-    );
-
-
-  const pillsList =
-    document.getElementById(
-      "assignee-pills-list"
-    );
-
-
-  const count =
-    document.getElementById(
-      "assignee-count"
-    );
-
-
-  if (
-    !detectedAssignees.length
-  ) {
-
-    container.classList.add(
-      "hidden"
-    );
-
-    return;
-
-  }
-
-
-  pillsList.innerHTML = "";
-
-
-  count.textContent =
-    `${detectedAssignees.length} found`;
-
-
-  /*
-   * ALL ASSIGNEES
-   */
-
-  const allPill =
-    document.createElement(
-      "div"
-    );
-
-
-  allPill.className =
-    "assignee-pill";
-
-
-  const allSelected =
-    selectedAssignees.size ===
-      detectedAssignees.length;
-
-
-  if (allSelected) {
-
-    allPill.classList.add(
-      "all-selected"
-    );
-
-  }
-
-
-  allPill.textContent =
-    "All Assignees";
-
-
-  allPill.title =
-    "Select all assignees";
-
-
-  allPill.addEventListener(
-    "click",
-    () => {
-
-      selectedAssignees =
-        new Set(
-          detectedAssignees
-        );
-
-      renderAssigneeSelector();
-
-    }
-  );
-
-
-  pillsList.appendChild(
-    allPill
-  );
-
-
-  /*
-   * INDIVIDUAL ASSIGNEES
-   */
-
-  detectedAssignees.forEach(
-    name => {
-
-      const pill =
-        document.createElement(
-          "div"
-        );
-
-
-  pill.className =
-        "assignee-pill";
-
-
-      if (
-        selectedAssignees.has(
-          name
-        )
-      ) {
-
-        pill.classList.add(
-          "selected"
-        );
-
-      }
-
-
-      pill.textContent =
-        name;
-
-
-      pill.title =
-        "Click to select or remove this assignee";
-
-
-      pill.addEventListener(
-        "click",
-        () => {
-
-          toggleAssignee(
-            name
-          );
-
-        }
-      );
-
-
-      pillsList.appendChild(
-        pill
-      );
-
-    }
-  );
-
-
-  container.classList.remove(
-    "hidden"
-  );
-
-}
-
-
-/* ============================================================
-   TOGGLE ASSIGNEE
-   ============================================================ */
-
-function toggleAssignee(
-  name
-) {
-
-  if (
-    selectedAssignees.has(
-      name
-    )
-  ) {
-
-    selectedAssignees.delete(
-      name
-    );
-
-  } else {
-
-    selectedAssignees.add(
-      name
-    );
-
-  }
-
-
-  renderAssigneeSelector();
-
-}
-
-
-/* ============================================================
-   THEME
-   ============================================================ */
-
-document
-  .getElementById(
-    "theme-toggle-btn"
-  )
-  .addEventListener(
-    "click",
-    () => {
-
-      const currentTheme =
-        document.documentElement
-          .getAttribute(
-            "data-theme"
-          );
-
-
-      const targetTheme =
-        currentTheme === "light"
-          ? "dark"
-          : "light";
-
-
-      document.documentElement
-        .setAttribute(
-          "data-theme",
-          targetTheme
-        );
-
-
-      document
-        .getElementById(
-          "theme-toggle-btn"
-        )
-        .textContent =
-          targetTheme === "dark"
-            ? "☼ Light Mode"
-            : "◑ Dark Mode";
-
-
-      localStorage.setItem(
-        "appTheme",
-        targetTheme
-      );
-
-    }
-  );
-
-
-/* ============================================================
-   ADD NEW FOLDER
-   ============================================================ */
-
-document
-  .getElementById(
-    "add-folder-btn"
-  )
-  .addEventListener(
-    "click",
-    () => {
-
-      const name =
-        prompt(
-          "Enter the new Main Folder / Sheet Name:"
-        );
-
-
-      if (
-        name === null
-      ) {
-
-        return;
-
-      }
-
-
-      const cleanName =
-        name.trim();
-
-
-      if (
-        !cleanName
-      ) {
-
-        alert(
-          "Folder / Sheet Name cannot be empty."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !projectDatabase[
-          cleanName
-        ]
-      ) {
-
-        projectDatabase[
-          cleanName
-        ] = {};
-
-      }
-
-
-      localStorage.setItem(
-        "projectDatabase",
-        JSON.stringify(
-          projectDatabase
-        )
-      );
-
-
-      updateDropdownMenu();
-
-
-      const select =
-        document.getElementById(
-          "main-sheet-select"
-        );
-
-
-      select.value =
-        cleanName;
-
-
-      rebuildWorkbookTree();
-
-
-      calculateGlobalMetrics();
-
-    }
-  );
-
-
-/* ============================================================
-   FOLDER SELECT
-   ============================================================ */
-
-document
-  .getElementById(
-    "main-sheet-select"
-  )
-  .addEventListener(
-    "change",
-    event => {
-
-      /*
-       * Selecting an existing folder
-       * automatically fills the selected value.
-       */
-
-      if (
-        event.target.value
-      ) {
-
-        event.target.value =
-          event.target.value;
-
-      }
-
-    }
-  );
-
-
-/* ============================================================
-   UPDATE FOLDER DROPDOWN
-   ============================================================ */
-
-function updateDropdownMenu() {
-
-  const select =
-    document.getElementById(
-      "main-sheet-select"
-    );
-
-
-  if (!select) {
-    return;
-  }
-
-
-  const currentValue =
-    select.value;
-
-
-  select.innerHTML = `
-
-    <option value="">
-      -- Select Existing Folder --
-    </option>
-
-  `;
-
-
-  Object.keys(
-    projectDatabase
-  )
-    .sort(
-      (a, b) =>
-        a.localeCompare(
-          b
-        )
-    )
-    .forEach(
-      mainKey => {
-
-        const option =
-          document.createElement(
-            "option"
-          );
-
-
-        option.value =
-          mainKey;
-
-
-        option.textContent =
-          mainKey;
-
-
-        select.appendChild(
-          option
-        );
-
-      }
-    );
-
-
-  if (
-    currentValue &&
-    projectDatabase[
-      currentValue
-    ]
-  ) {
-
-    select.value =
-      currentValue;
-
-  }
-
-}
-
-
-/* ============================================================
-   CLOSE LOADER
-   ============================================================ */
-
-document
-  .getElementById(
-    "btn-close-loader"
-  )
-  .addEventListener(
-    "click",
-    () => {
-
-      cancelLoader();
-
-    }
-  );
-
-
-/* ============================================================
-   CLOSE ACTIVE WORKSPACE
-   ============================================================ */
-
-document
-  .getElementById(
-    "btn-close-view"
-  )
-  .addEventListener(
-    "click",
-    () => {
-
-      loaderCancelled = true;
-
-      loaderRunId++;
-
-
-      activeMainSheet = "";
-
-      activeSubSheet = "";
-
-
-      localStorage.removeItem(
-        "activeMainSheet"
-      );
-
-      localStorage.removeItem(
-        "activeSubSheet"
-      );
-
-
-      document
-        .getElementById(
-          "view-navigation-row"
-        )
-        .classList.add(
-          "hidden"
-        );
-
-
-      document
-        .getElementById(
-          "view-title"
-        )
-        .textContent =
-          "Active Workspace View";
-
-
-      document
-        .getElementById(
-          "view-range-indicator"
-        )
-        .textContent = "";
-
-
-      document
-        .getElementById(
-          "grid-output-view"
-        )
-        .innerHTML = `
-
-          <div class="splash-container">
-
-            <div class="splash-text">
-              Paste sheet data stream or select a subfolder node
-              from the workbook index to mount sheet records.
-            </div>
-
-          </div>
-
-        `;
-
-
-      hideLoader();
-
-      calculateGlobalMetrics();
-
-    }
-  );
-
-
-/* ============================================================
-   PROCESS AND STORE DATA
-   ============================================================ */
-
-document
-  .getElementById(
-    "process-entry-btn"
-  )
-  .addEventListener(
-    "click",
-    async () => {
-
-      if (
-        !verifyOnlineStatus()
-      ) {
-
-        return;
-
-      }
-
-
-      const folderSelect =
-        document.getElementById(
-          "main-sheet-select"
-        );
-
-
-      const mainName =
-        folderSelect.value.trim();
-
-
-      const subName =
-        document
-          .getElementById(
-            "sub-sheet-input"
-          )
-          .value
-          .trim();
-
-
-      const rawDataText =
-        document
-          .getElementById(
-            "paste-input"
-          )
-          .value;
-
-
-      if (
-        !mainName
-      ) {
-
-        alert(
-          "Please select or create a Main Folder / Sheet Name."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !subName
-      ) {
-
-        alert(
-          "Please provide the Sub Route / Route Identifier."
-        );
-
-        return;
-
-      }
-
-
-      if (
-        !rawDataText.trim()
-      ) {
-
-        alert(
-          "Please paste the Google Sheet data first."
-        );
-
-        return;
-
-      }
-
-
-      /*
-       * Re-parse immediately before processing.
-       * This prevents stale Assignee indexes.
-       */
-
-      parsePastedStreamForAssignees();
-
-
-      const button =
-        document.getElementById(
-          "process-entry-btn"
-        );
-
-
-      button.disabled = true;
-
-
-      setActivityUrl(
-        "processing",
-        mainName,
-        subName
-      );
-
-
-      showLoader(
-  "process",
-  mainName,
-  subName
-);
-
-/*
- * IMPORTANT:
- * Give the browser one rendering cycle to
- * actually display the rotating loader before
- * heavy data processing begins.
- */
-await new Promise(
-  resolve =>
-    requestAnimationFrame(
-      () =>
-        requestAnimationFrame(
-          resolve
-        )
-    )
-);
 
 try {
 
-        /* ======================================================
-           READING
-           ====================================================== */
-
-        setLoaderStage(
-          "reading"
-        );
-
-
-        setActivityUrl(
-          "reading",
-          mainName,
-          subName
-        );
-
-
-        /*
-         * The data was already parsed by
-         * parsePastedStreamForAssignees()
-         * immediately before processing.
-         *
-         * Reuse that parsed array instead of
-         * splitting and trimming the entire
-         * dataset a second time.
-         */
-
-        const rows =
-          parsedRowsStream;
-
-
-        if (
-          !rows ||
-          !rows.length
-        ) {
-
-          throw new Error(
-            "No data rows were detected."
-          );
-
-        }
-
-
-        /*
-         * Use the actual detected header.
-         */
-
-        let headerRowIndex =
-          detectedHeaderRowIdx;
-
-
-        let headers =
-          detectedHeaders.slice();
-
-
-        /*
-         * Safety fallback if user
-         * changed the textarea.
-         */
-
-        if (
-          !headers.length ||
-          headerRowIndex < 0
-        ) {
-
-          headerRowIndex = 0;
-
-          headers =
-            rows[0].map(
-              cell =>
-                cell.trim()
-            );
-
-        }
-
-
-        /*
-         * Remove completely empty headers
-         * only if they are trailing.
-         */
-
-        while (
-          headers.length > 1 &&
-          !headers[
-            headers.length - 1
-          ].trim()
-        ) {
-
-          headers.pop();
-
-        }
-
-
-        /*
-         * Make sure every header has
-         * something unique internally.
-         *
-         * Display name remains unchanged.
-         */
-
-        headers =
-          makeUniqueHeaders(
-            headers
-          );
-
-
-        /*
-         * Actual Assignee column.
-         */
-
-        let assigneeIndex =
-          headers.findIndex(
-            isAssigneeHeader
-          );
-
-
-        /*
-         * If original header was duplicated
-         * with internal suffix, try original
-         * text as well.
-         */
-
-        if (
-          assigneeIndex === -1
-        ) {
-
-          assigneeIndex =
-            headers.findIndex(
-              header =>
-                isAssigneeHeader(
-                  stripInternalDuplicateSuffix(
-                    header
-                  )
-                )
-            );
-
-        }
-
-
-        /* ======================================================
-           ANALYSING
-           ====================================================== */
-
-        setLoaderStage(
-          "analysing"
-        );
-
-
-        setActivityUrl(
-          "analysing",
-          mainName,
-          subName
-        );
-
-
-        buildStrikethroughRowCache();
-
-
-        const extractedRows =
-          [];
-
-
-        const selected =
-          Array.from(
-            selectedAssignees
-          );
-
-
-        /*
-         * If there are assignees detected
-         * but none are selected, stop.
-         */
-
-        if (
-          assigneeIndex !== -1 &&
-          detectedAssignees.length > 0 &&
-          selected.length === 0
-        ) {
-
-          throw new Error(
-            "Please select at least one Assignee."
-          );
-
-        }
-
-
-        /*
-         * FAST ROW EXTRACTION.
-         *
-         * Assignee filtering happens before an
-         * aligned row is allocated.
-         *
-         * A Set is used for constant-time lookup.
-         */
-
-        const selectedLookup =
-          new Set(
-            selected.map(
-              name =>
-                String(
-                  name
-                )
-                  .trim()
-                  .toLowerCase()
-            )
-          );
-
-
-        const hasAssigneeFilter =
-          assigneeIndex !== -1 &&
-          selectedLookup.size > 0;
-
-
-        const headerLength =
-          headers.length;
-
-
-        for (
-  let rowIndex =
-    headerRowIndex + 1;
-
-  rowIndex <
-  rows.length;
-
-  rowIndex++
-) {
-
-  /*
-   * Keep the browser responsive during
-   * very large imports.
-   *
-   * Every 500 rows we yield back to the
-   * browser so the loader can animate.
-   */
-  if (
-    (rowIndex - headerRowIndex) % 500 === 0
-  ) {
-
-    await new Promise(
-      resolve =>
-        setTimeout(
-          resolve,
-          0
-        )
-    );
-
-  }
-
-  const cells =
-    rows[rowIndex];
-
-          if (
-            !cells ||
-            cells.length === 0
-          ) {
-
-            continue;
-
-          }
-
-
-          /*
-           * Filter by Assignee FIRST.
-           * This avoids creating an entire row
-           * for data that will be discarded.
-           */
-
-          if (
-            assigneeIndex !== -1
-          ) {
-
-            const rowAssignee =
-              cells[
-                assigneeIndex
-              ];
-
-
-            if (
-              !rowAssignee
-            ) {
-
-              continue;
-
-            }
-
-
-            if (
-              hasAssigneeFilter &&
-              !selectedLookup.has(
-                String(
-                  rowAssignee
-                )
-                  .trim()
-                  .toLowerCase()
-              )
-            ) {
-
-              continue;
-
-            }
-
-          }
-
-
-          const aligned =
-            new Array(
-              headerLength
-            );
-
-
-          for (
-            let columnIndex = 0;
-
-            columnIndex <
-            headerLength;
-
-            columnIndex++
-          ) {
-
-            aligned[
-              columnIndex
-            ] =
-              cells[
-                columnIndex
-              ] !== undefined
-                ? cells[
-                    columnIndex
-                  ]
-                : "";
-
-          }
-
-
-          const strike =
-            detectHtmlStrikethrough(
-              rowIndex
-            );
-
-
-          extractedRows.push({
-
-            data:
-              aligned,
-
-            isStrikethrough:
-              strike
-
-          });
-
-
-          /*
-           * Yield occasionally during very large
-           * imports so the browser remains responsive.
-           */
-
-          if (
-            rowIndex % 5000 === 0
-          ) {
-
-            await new Promise(
-              resolve =>
-                setTimeout(
-                  resolve,
-                  0
-                )
-            );
-
-          }
-
-        }
-
-
-        if (
-          !extractedRows.length
-        ) {
-
-          throw new Error(
-            "No valid rows matching the selected Assignee were found."
-          );
-
-        }
-
-
-        /* ======================================================
-           ARRANGING
-           ====================================================== */
-
-        setLoaderStage(
-          "arranging"
-        );
-
-
-        setActivityUrl(
-          "arranging",
-          mainName,
-          subName
-        );
-
-
-
-
-        if (
-          !projectDatabase[
-            mainName
-          ]
-        ) {
-
-          projectDatabase[
-            mainName
-          ] = {};
-
-        }
-
-
-        /*
-         * First time route.
-         */
-
-        if (
-          !projectDatabase[
-            mainName
-          ][subName]
-        ) {
-
-          projectDatabase[
-            mainName
-          ][subName] = {
-
-            headers:
-              headers,
-
-            rows:
-              extractedRows
-
-          };
-
-        } else {
-
-          /*
-           * Existing route.
-           *
-           * Merge headers dynamically.
-           * This allows future pasted sheets
-           * to have changed columns/order.
-           */
-
-          const existing =
-            projectDatabase[
-              mainName
-            ][subName];
-
-
-          const merged =
-            mergeSheetData(
-              existing.headers || [],
-              existing.rows || [],
-              headers,
-              extractedRows
-            );
-
-
-          projectDatabase[
-            mainName
-          ][subName] = merged;
-
-        }
-
-
-        /* ======================================================
-           STORING
-           ====================================================== */
-
-        setLoaderStage(
-          "storing"
-        );
-
-
-        setActivityUrl(
-          "storing",
-          mainName,
-          subName
-        );
-
-
-
-
-        localStorage.setItem(
-          "projectDatabase",
-          JSON.stringify(
-            projectDatabase
-          )
-        );
-
-        /* ======================================================
-           SUCCESS
-           ====================================================== */
-
-        setLoaderStage(
-          "success"
-        );
-
-
-        setActivityUrl(
-          "success",
-          mainName,
-          subName
-        );
-
-
-
-
-        /*
-         * Update directory.
-         */
-
-        updateDropdownMenu();
-
-        rebuildWorkbookTree();
-
-
-        /*
-         * Render FIRST.
-         */
-
-        activeMainSheet =
-          mainName;
-
-        activeSubSheet =
-          subName;
-
-
-        localStorage.setItem(
-          "activeMainSheet",
-          mainName
-        );
-
-        localStorage.setItem(
-          "activeSubSheet",
-          subName
-        );
-
-
-        document
-          .getElementById(
-            "view-navigation-row"
-          )
-          .classList.remove(
-            "hidden"
-          );
-
-
-        document
-          .getElementById(
-            "view-title"
-          )
-          .innerHTML =
-            `Folder: <b>${escapeHtml(mainName)}</b> ➔ Route: <b>${escapeHtml(subName)}</b>`;
-
-
-        renderSpreadsheetViewGrid(
-          projectDatabase[
-            mainName
-          ][subName]
-        );
-
-
-        calculateGlobalMetrics();
-
-
-        /*
-         * Flash Assignee header twice.
-         */
-
-        flashAssigneeHeader();
-
-
-        /*
-         * Clean input fields.
-         */
-
-        document
-          .getElementById(
-            "paste-input"
-          )
-          .value = "";
-
-
-        document
-          .getElementById(
-            "sub-sheet-input"
-          )
-          .value = "";
-
-
-        clipboardHtmlBuffer = "";
-
-        strikethroughRowCache = null;
-
-
-        parsedRowsStream = [];
-
-
-        detectedAssignees = [];
-
-
-        selectedAssignees =
-          new Set();
-
-
-        detectedHeaders = [];
-
-
-        detectedAssigneeColIdx =
-          -1;
-
-
-        detectedHeaderRowIdx =
-          -1;
-
-
-        /*
-         * Close Assignee card automatically.
-         */
-
-        document
-          .getElementById(
-            "assignee-selector-box"
-          )
-          .classList.add(
-            "hidden"
-          );
-
-
-        /*
-         * Hide loader only after
-         * actual table is mounted.
-         */
-
-        hideLoader();
-
-
-        setActivityUrl(
-          "viewing",
-          mainName,
-          subName
-        );
-
-
-      } catch (error) {
-
-        console.error(
-          "Processing error:",
-          error
-        );
-
-
-        hideLoader();
-
-
-        setActivityUrl(
-          "error",
-          mainName,
-          subName
-        );
-
-
-        alert(
-          `Unable to process the data: ${
-            error.message || error
-          }`
-        );
-
-      } finally {
-
-        button.disabled = false;
-
-      }
-
-    }
-  );
-
-
-/* ============================================================
-   MAKE UNIQUE INTERNAL HEADERS
-   ============================================================ */
-
-function makeUniqueHeaders(
-  headers
-) {
-
-  const used =
-    new Map();
-
-
-  return headers.map(
-    original => {
-
-      const clean =
-        String(
-          original ?? ""
-        ).trim();
-
-
-      if (
-        !clean
-      ) {
-
-        const emptyCount =
-          used.get(
-            "__EMPTY__"
-          ) || 0;
-
-
-        used.set(
-          "__EMPTY__",
-          emptyCount + 1
-        );
-
-
-        return `Column ${emptyCount + 1}`;
-
-      }
-
-
-      const key =
-        normalizeHeader(
-          clean
-        );
-
-
-      const count =
-        used.get(
-          key
-        ) || 0;
-
-
-      used.set(
-        key,
-        count + 1
-      );
-
-
-      if (
-        count === 0
-      ) {
-
-        return clean;
-
-      }
-
-
-      /*
-       * Internal duplicate marker.
-       * It is removed when displaying/exporting.
-       */
-
-      return `${clean}_dup${count}`;
-
-    }
-  );
-
-}
-
-
-/* ============================================================
-   STRIP INTERNAL DUPLICATE SUFFIX
-   ============================================================ */
-
-function stripInternalDuplicateSuffix(
-  header
-) {
-
-  return String(
-    header ?? ""
-  ).replace(
-    /_dup\d+$/i,
-    ""
-  );
-
-}
-
-
-/* ============================================================
-   HEADER DISPLAY NAME
-   ============================================================ */
-
-function displayHeaderName(
-  header
-) {
-
-  return stripInternalDuplicateSuffix(
-    header
-  );
-
-}
-
-
-/* ============================================================
-   FAST HTML STRIKETHROUGH CACHE
-   ============================================================ */
-
-function buildStrikethroughRowCache() {
-
-  strikethroughRowCache = new Set();
-
-
-  if (
-    !clipboardHtmlBuffer
-  ) {
-
-    return;
-
-  }
-
-
-  try {
-
-    const parser =
-      new DOMParser();
-
-
-    const doc =
-      parser.parseFromString(
-        clipboardHtmlBuffer,
-        "text/html"
-      );
-
-
-    const htmlRows =
-      doc.querySelectorAll(
-        "tr"
-      );
-
-
-    htmlRows.forEach(
-      (
-        tr,
-        index
-      ) => {
-
-        const style =
-          (
-            tr.getAttribute(
-              "style"
-            ) || ""
-          ).toLowerCase();
-
-
-        const html =
-          tr.innerHTML.toLowerCase();
-
-
-        if (
-          style.includes(
-            "line-through"
-          ) ||
-          html.includes(
-            "line-through"
-          ) ||
-          html.includes(
-            "<strike"
-          ) ||
-          html.includes(
-            "<del"
-          )
-        ) {
-
-          strikethroughRowCache.add(
-            index
-          );
-
-        }
-
-      }
-    );
-
-
-  } catch (
-    error
-  ) {
-
-    console.warn(
-      "Unable to build strikethrough cache:",
-      error
-    );
-
-    strikethroughRowCache =
-      new Set();
-
-  }
-
-}
-
-
-/* ============================================================
-   FAST HTML STRIKETHROUGH DETECTION
-   ============================================================ */
-
-function detectHtmlStrikethrough(
-  rowIndex
-) {
-
-  if (
-    !strikethroughRowCache
-  ) {
-
-    return false;
-
-  }
-
-
-  return strikethroughRowCache.has(
-    rowIndex
-  );
-
-}
-
-
-/* ============================================================
-   MERGE EXISTING + NEW SHEET DATA
-   ============================================================ */
-
-function mergeSheetData(
-  oldHeaders,
-  oldRows,
-  newHeaders,
-  newRows
-) {
-
-  /*
-   * Create stable header keys based on
-   * normalized name + occurrence number.
-   */
-
-  const oldKeys =
-    createHeaderKeys(
-      oldHeaders
-    );
-
-
-  const newKeys =
-    createHeaderKeys(
-      newHeaders
-    );
-
-
-  const mergedHeaders = [];
-
-  const mergedKeys = [];
-
-
-  /*
-   * Keep old columns first.
-   */
-
-  oldHeaders.forEach(
-    (header, index) => {
-
-      const key =
-        oldKeys[index];
-
-
-      if (
-        !mergedKeys.includes(
-          key
-        )
-      ) {
-
-        mergedKeys.push(
-          key
-        );
-
-        mergedHeaders.push(
-          header
-        );
-
-      }
-
-    }
-  );
-
-
-  /*
-   * Add newly pasted columns.
-   */
-
-  newHeaders.forEach(
-    (header, index) => {
-
-      const key =
-        newKeys[index];
-
-
-      if (
-        !mergedKeys.includes(
-          key
-        )
-      ) {
-
-        mergedKeys.push(
-          key
-        );
-
-        mergedHeaders.push(
-          header
-        );
-
-      }
-
-    }
-  );
-
-
-  /*
-   * Convert old rows.
-   */
-
-  const finalRows = [];
-
-
-  oldRows.forEach(
-    rowObject => {
-
-      const oldCells =
-        Array.isArray(
-          rowObject
-        )
-          ? rowObject
-          : rowObject.data;
-
-
-      const output =
-        new Array(
-          mergedHeaders.length
-        ).fill("");
-
-
-      oldKeys.forEach(
-        (key, index) => {
-
-          const target =
-            mergedKeys.indexOf(
-              key
-            );
-
-
-          if (
-            target !== -1
-          ) {
-
-            output[target] =
-              oldCells[index] ??
-              "";
-
-          }
-
-        }
-      );
-
-
-      finalRows.push({
-
-        data:
-          output,
-
-        isStrikethrough:
-          !Array.isArray(
-            rowObject
-          ) &&
-          rowObject.isStrikethrough === true
-
-      });
-
-    }
-  );
-
-
-  /*
-   * Convert new rows.
-   */
-
-  newRows.forEach(
-    rowObject => {
-
-      const newCells =
-        Array.isArray(
-          rowObject
-        )
-          ? rowObject
-          : rowObject.data;
-
-
-      const output =
-        new Array(
-          mergedHeaders.length
-        ).fill("");
-
-
-      newKeys.forEach(
-        (key, index) => {
-
-          const target =
-            mergedKeys.indexOf(
-              key
-            );
-
-
-          if (
-            target !== -1
-          ) {
-
-            output[target] =
-              newCells[index] ??
-              "";
-
-          }
-
-        }
-      );
-
-
-      finalRows.push({
-
-        data:
-          output,
-
-        isStrikethrough:
-          !Array.isArray(
-            rowObject
-          ) &&
-          rowObject.isStrikethrough === true
-
-      });
-
-    }
-  );
-
-
-  return {
-
-    headers:
-      mergedHeaders,
-
-    rows:
-      finalRows
-
-  };
-
-}
-
-
-/* ============================================================
-   CREATE HEADER KEYS
-   ============================================================ */
-
-function createHeaderKeys(
-  headers
-) {
-
-  const counts =
-    new Map();
-
-
-  return headers.map(
-    header => {
-
-      const normalized =
-        normalizeHeader(
-          displayHeaderName(
-            header
-          )
-        );
-
-
-      const current =
-        counts.get(
-          normalized
-        ) || 0;
-
-
-      counts.set(
-        normalized,
-        current + 1
-      );
-
-
-      return `${normalized}::${current}`;
-
-    }
-  );
-
-}
-
-
-/* ============================================================
-   FLASH ASSIGNEE HEADER TWICE
-   ============================================================ */
-
-function flashAssigneeHeader() {
-
-  const headers =
-    document.querySelectorAll(
-      "#grid-output-view thead th"
-    );
-
-
-  if (
-    !headers.length
-  ) {
-
-    return;
-
-  }
-
-
-  const flashOnce = () => {
-
-    headers.forEach(
-      header => {
-
-        header.classList.remove(
-          "header-success-flash"
-        );
-
-        void header.offsetWidth;
-
-        header.classList.add(
-          "header-success-flash"
-        );
-
-      }
-    );
-
-  };
-
-
-  flashOnce();
-
-
-  setTimeout(
-    () => {
-
-      flashOnce();
-
-    },
-    800
-  );
-
-
-  setTimeout(
-    () => {
-
-      headers.forEach(
-        header => {
-
-          header.classList.remove(
-            "header-success-flash"
-          );
-
-        }
-      );
-
-    },
-    1600
-  );
-
-}
-
-
-/* ============================================================
-   BUILD WORKBOOK TREE
-   ============================================================ */
-
-function rebuildWorkbookTree() {
-
-  const container =
-    document.getElementById(
-      "workbook-tree-container"
-    );
-
-
-  container.innerHTML = "";
-
-
-  const workbooks =
-    Object.keys(
-      projectDatabase
-    );
-
-
-  if (
-    workbooks.length === 0
-  ) {
-
-    container.innerHTML = `
-
-      <div
-        style="
-          padding:10px;
-          color:var(--text-muted);
-        "
-      >
-        No datasets loaded.
-      </div>
-
-    `;
-
-    return;
-
-  }
-
-
-  /*
-   * Calculate Assignee totals in one pass.
-   * The stored route already contains only
-   * the rows selected during extraction.
-   */
-
-  function getAssigneeStats(
+```
+history.replaceState(
+  {
+    state,
+    folder,
     route
-  ) {
+  },
 
-    const headers =
-      route.headers || [];
+  "",
 
+  `${location.pathname}${
+    params.toString()
+      ? "?" + params.toString()
+      : ""
+  }`
+);
+```
 
-    const rows =
-      route.rows || [];
+} catch (error) {
 
+```
+console.warn(
+  "Unable to update activity URL:",
+  error
+);
+```
 
-    const assigneeIndex =
-      headers.findIndex(
-        header =>
-          isAssigneeHeader(
-            displayHeaderName(
-              header
-            )
-          )
+}
+
+const titles = {
+
+```
+opening:
+  `Opening ${route} — ${folder} | Sheet Task Extractor Pro`,
+
+processing:
+  `Processing data — ${folder} | Sheet Task Extractor Pro`,
+
+viewing:
+  `${route} — ${folder} | Sheet Task Extractor Pro`,
+
+reading:
+  `Reading data — ${route} | Sheet Task Extractor Pro`,
+
+analysing:
+  `Analysing data — ${route} | Sheet Task Extractor Pro`,
+
+arranging:
+  `Arranging data — ${route} | Sheet Task Extractor Pro`,
+
+storing:
+  `Storing data — ${route} | Sheet Task Extractor Pro`,
+
+success:
+  `Successfully extracted — ${route} | Sheet Task Extractor Pro`
+```
+
+};
+
+document.title =
+titles[state] ||
+"Sheet Task Extractor Pro - Direct Ingest Workspace";
+
+}
+
+/* ============================================================
+ONLINE STATUS
+============================================================ */
+
+function verifyOnlineStatus() {
+
+const blocker =
+document.getElementById(
+"global-offline-blocker"
+);
+
+if (!navigator.onLine) {
+
+```
+blocker.classList.remove(
+  "hidden"
+);
+
+return false;
+```
+
+}
+
+blocker.classList.add(
+"hidden"
+);
+
+return true;
+
+}
+
+/* ============================================================
+LOADER
+============================================================ */
+
+function showLoader(
+mode,
+folder = "",
+route = ""
+) {
+
+loaderMode = mode;
+
+loaderCancelled = false;
+
+const overlay =
+document.getElementById(
+"view-loader-overlay"
+);
+
+if (!overlay) {
+return;
+}
+
+overlay.classList.remove(
+"hidden",
+"success-state"
+);
+
+const kicker =
+document.getElementById(
+"view-loader-kicker"
+);
+
+if (kicker) {
+
+```
+kicker.textContent =
+  mode === "route"
+    ? "ROUTE WORKSPACE"
+    : "DATA WORKFLOW";
+```
+
+}
+
+const routeLabel =
+document.getElementById(
+"loader-route-name"
+);
+
+if (routeLabel) {
+
+```
+if (folder || route) {
+
+  routeLabel.textContent =
+    `${mode === "route" ? "Opening" : "Processing"}: ${
+      folder
+    }${route ? " / " + route : ""}`;
+
+  routeLabel.classList.remove(
+    "hidden"
+  );
+
+} else {
+
+  routeLabel.classList.add(
+    "hidden"
+  );
+
+  routeLabel.textContent = "";
+
+}
+```
+
+}
+
+const closeButton =
+document.getElementById(
+"btn-close-loader"
+);
+
+if (closeButton) {
+
+```
+closeButton.disabled = false;
+```
+
+}
+
+}
+
+function hideLoader() {
+
+const overlay =
+document.getElementById(
+"view-loader-overlay"
+);
+
+if (overlay) {
+
+```
+overlay.classList.add(
+  "hidden"
+);
+
+overlay.classList.remove(
+  "success-state"
+);
+```
+
+}
+
+const closeButton =
+document.getElementById(
+"btn-close-loader"
+);
+
+if (closeButton) {
+
+```
+closeButton.disabled = false;
+```
+
+}
+
+}
+
+function cancelLoader() {
+
+loaderCancelled = true;
+
+loaderRunId++;
+
+hideLoader();
+
+setActivityUrl(
+"",
+"",
+""
+);
+
+}
+
+function setLoaderStage(key) {
+
+const index =
+loaderStages.findIndex(
+stage => stage[0] === key
+);
+
+if (index < 0) {
+return;
+}
+
+const stage =
+loaderStages[index];
+
+const title =
+document.getElementById(
+"view-loader-text"
+);
+
+const detail =
+document.getElementById(
+"view-loader-detail"
+);
+
+const progress =
+document.getElementById(
+"view-loader-progress"
+);
+
+if (title) {
+
+```
+title.textContent =
+  stage[1];
+```
+
+}
+
+if (detail) {
+
+```
+detail.textContent =
+  stage[2];
+```
+
+}
+
+if (progress) {
+
+```
+progress.style.width =
+  stage[3] + "%";
+```
+
+}
+
+document
+.querySelectorAll(
+".loader-step"
+)
+.forEach(
+element => {
+
+```
+    const stepKey =
+      element.dataset.step;
+
+    const stepIndex =
+      loaderStages.findIndex(
+        stageItem =>
+          stageItem[0] === stepKey
       );
+
+
+    element.classList.remove(
+      "active",
+      "done",
+      "success"
+    );
 
 
     if (
-      assigneeIndex === -1
+      key === "success" &&
+      stepKey === "success"
     ) {
 
-      return [];
+      element.classList.add(
+        "success"
+      );
+
+    } else if (
+      stepIndex < index
+    ) {
+
+      element.classList.add(
+        "done"
+      );
+
+    } else if (
+      stepIndex === index
+    ) {
+
+      element.classList.add(
+        "active"
+      );
 
     }
 
-
-  const counts =
-      new Map();
-
-
-  rows.forEach(
-      rowObject => {
-
-        const cells =
-          Array.isArray(
-            rowObject
-          )
-            ? rowObject
-            : (
-                rowObject.data || []
-              );
-
-
-        const name =
-          String(
-            cells[
-              assigneeIndex
-            ] ?? ""
-          ).trim();
-
-
-        if (
-          !name
-        ) {
-
-          return;
-
-        }
-
-
-        counts.set(
-          name,
-          (
-            counts.get(
-              name
-            ) || 0
-          ) + 1
-        );
-
-      }
-    );
-
-
-    return Array.from(
-      counts.entries()
-    );
-
   }
-
-
-  workbooks
-    .sort(
-      (a, b) =>
-        a.localeCompare(
-          b
-        )
-    )
-    .forEach(
-      mainKey => {
-
-        const subMap =
-          projectDatabase[
-            mainKey
-          ] || {};
-
-
-        const subList =
-          Object.keys(
-            subMap
-          );
-
-
-        let sumTotal = 0;
-
-
-        subList.forEach(
-          subKey => {
-
-            sumTotal +=
-              (
-                subMap[
-                  subKey
-                ].rows || []
-              ).length;
-
-          }
-        );
-
-
-        const node =
-          document.createElement(
-            "div"
-          );
-
-
-        node.className =
-          "tree-node";
-
-
-        node.innerHTML = `
-
-          <div class="tree-header">
-
-            <span>
-              📂 ${escapeHtml(mainKey)}
-            </span>
-
-            <span class="count-badge">
-              ${sumTotal} rows
-            </span>
-
-          </div>
-
-          <div class="tree-children"></div>
-
-        `;
-
-
-        const childrenContainer =
-          node.querySelector(
-            ".tree-children"
-          );
-
-
-        if (
-          subList.length === 0
-        ) {
-
-          childrenContainer.innerHTML = `
-
-            <div
-              style="
-                padding:6px;
-                color:var(--text-muted);
-                font-size:10px;
-              "
-            >
-              Empty folder
-            </div>
-
-          `;
-
-        }
-
-
-        subList.forEach(
-          subKey => {
-
-            const route =
-              subMap[
-                subKey
-              ];
-
-
-            const routeRows =
-              route.rows || [];
-
-
-            const rowVolume =
-              routeRows.length;
-
-
-            const strikeCount =
-              routeRows.filter(
-                row =>
-                  row &&
-                  row.isStrikethrough === true
-              ).length;
-
-
-            const assigneeStats =
-              getAssigneeStats(
-                route
-              );
-
-
-            const assigneeDisplay =
-              assigneeStats.length
-                ? assigneeStats
-                    .map(
-                      ([
-                        name,
-                        count
-                      ]) => `
-
-                        <span
-                          class="count-badge"
-                          title="${escapeHtml(name)}"
-                        >
-                          ${escapeHtml(name)} · ${count}
-                        </span>
-
-                      `
-                    )
-                    .join("")
-                : `
-
-                    <span
-                      class="count-badge"
-                    >
-                      No Assignee
-                    </span>
-
-                  `;
-
-
-            const item =
-              document.createElement(
-                "div"
-              );
-
-
-            item.className =
-              `tree-item ${
-                activeMainSheet === mainKey &&
-                activeSubSheet === subKey
-                  ? "active"
-                  : ""
-              }`;
-
-
-            item.innerHTML = `
-
-              <span>
-                📄 ${escapeHtml(subKey)}
-              </span>
-
-              <div
-                class="tree-item-meta"
-                style="
-                  display:flex;
-                  align-items:center;
-                  gap:5px;
-                  flex-wrap:wrap;
-                  justify-content:flex-end;
-                "
-              >
-
-                ${assigneeDisplay}
-
-                ${
-                  strikeCount > 0
-                    ? `
-
-                      <span
-                        class="count-badge"
-                        style="
-                          background:rgba(217,48,37,0.15);
-                          color:var(--danger);
-                        "
-                      >
-                        ☠ ${strikeCount}
-                      </span>
-
-                    `
-                    : ""
-                }
-
-                <span
-                  class="count-badge"
-                  title="Total rows"
-                >
-                  ${rowVolume}
-                </span>
-
-                <button
-                  class="btn-delete-node"
-                  data-main="${escapeHtml(mainKey)}"
-                  data-sub="${escapeHtml(subKey)}"
-                  type="button"
-                >
-                  ✕
-                </button>
-
-              </div>
-
-            `;
-
-
-            item.addEventListener(
-              "click",
-              () => {
-
-                switchViewContext(
-                  mainKey,
-                  subKey
-                );
-
-              }
-            );
-
-
-            const deleteButton =
-              item.querySelector(
-                ".btn-delete-node"
-              );
-
-
-            deleteButton.addEventListener(
-              "click",
-              event => {
-
-                event.stopPropagation();
-
-
-                const mainTarget =
-                  event.currentTarget
-                    .getAttribute(
-                      "data-main"
-                    );
-
-
-                const subTarget =
-                  event.currentTarget
-                    .getAttribute(
-                      "data-sub"
-                    );
-
-
-                if (
-                  confirm(
-                    `Delete route [${subTarget}] from [${mainTarget}]?`
-                  )
-                ) {
-
-                  delete projectDatabase[
-                    mainTarget
-                  ][
-                    subTarget
-                  ];
-
-
-                  if (
-                    Object.keys(
-                      projectDatabase[
-                        mainTarget
-                      ]
-                    ).length === 0
-                  ) {
-
-                    delete projectDatabase[
-                      mainTarget
-                    ];
-
-                  }
-
-
-                  localStorage.setItem(
-                    "projectDatabase",
-                    JSON.stringify(
-                      projectDatabase
-                    )
-                  );
-
-
-                  if (
-                    activeMainSheet ===
-                      mainTarget &&
-                    activeSubSheet ===
-                      subTarget
-                  ) {
-
-                    document
-                      .getElementById(
-                        "btn-close-view"
-                      )
-                      .click();
-
-                  }
-
-
-                  updateDropdownMenu();
-
-                  rebuildWorkbookTree();
-
-                  calculateGlobalMetrics();
-
-                }
-
-              }
-            );
-
-
-            childrenContainer.appendChild(
-              item
-            );
-
-          }
-        );
-
-
-        container.appendChild(
-          node
-        );
-
-      }
-    );
+);
+```
+
+const overlay =
+document.getElementById(
+"view-loader-overlay"
+);
+
+if (overlay) {
+
+```
+overlay.classList.toggle(
+  "success-state",
+  key === "success"
+);
+```
+
+}
+
+}
+
+async function runActivityLoader(
+mode,
+folder = "",
+route = ""
+) {
+
+const myRunId =
+++loaderRunId;
+
+showLoader(
+mode,
+folder,
+route
+);
+
+for (
+const stage of loaderStages
+) {
+
+```
+if (
+  loaderCancelled ||
+  myRunId !== loaderRunId
+) {
+
+  return false;
 
 }
 
 
-/* ============================================================
-   OPEN ROUTE
-   ============================================================ */
+setLoaderStage(
+  stage[0]
+);
 
-async function switchViewContext(
-  mainKey,
-  subKey
+
+setActivityUrl(
+  stage[0],
+  folder,
+  route
+);
+
+
+if (
+  stage[0] !== "success"
 ) {
 
-  if (
-    !projectDatabase[
-      mainKey
-    ] ||
-    !projectDatabase[
-      mainKey
-    ][subKey]
-  ) {
+  await wait(
+    mode === "route"
+      ? 180
+      : 240
+  );
 
-    return;
+}
+```
+
+}
+
+await wait(
+mode === "route"
+? 220
+: 350
+);
+
+if (
+loaderCancelled ||
+myRunId !== loaderRunId
+) {
+
+```
+return false;
+```
+
+}
+
+return true;
+
+}
+
+/* ============================================================
+INITIAL LOAD
+============================================================ */
+
+document.addEventListener(
+"DOMContentLoaded",
+() => {
+
+```
+verifyOnlineStatus();
+
+
+const savedData =
+  localStorage.getItem(
+    "projectDatabase"
+  );
+
+
+const savedTheme =
+  localStorage.getItem(
+    "appTheme"
+  );
+
+
+const savedMain =
+  localStorage.getItem(
+    "activeMainSheet"
+  );
+
+
+const savedSub =
+  localStorage.getItem(
+    "activeSubSheet"
+  );
+
+
+if (savedData) {
+
+  try {
+
+    projectDatabase =
+      JSON.parse(
+        savedData
+      ) || {};
+
+  } catch (error) {
+
+    console.error(
+      "Unable to restore database:",
+      error
+    );
+
+    projectDatabase = {};
 
   }
 
+}
 
-  loaderCancelled = true;
 
-  loaderRunId++;
+if (
+  savedTheme === "dark"
+) {
 
+  document.documentElement
+    .setAttribute(
+      "data-theme",
+      "dark"
+    );
+
+
+  const toggleButton =
+    document.getElementById(
+      "theme-toggle-btn"
+    );
+
+
+  if (toggleButton) {
+
+    toggleButton.textContent =
+      "☼ Light Mode";
+
+  }
+
+}
+
+
+updateDropdownMenu();
+
+rebuildWorkbookTree();
+
+
+if (
+  savedMain &&
+  savedSub &&
+  projectDatabase[savedMain] &&
+  projectDatabase[savedMain][savedSub]
+) {
 
   activeMainSheet =
-    mainKey;
+    savedMain;
 
   activeSubSheet =
-    subKey;
-
-
-  localStorage.setItem(
-    "activeMainSheet",
-    mainKey
-  );
-
-  localStorage.setItem(
-    "activeSubSheet",
-    subKey
-  );
+    savedSub;
 
 
   document
@@ -3754,998 +908,2053 @@ async function switchViewContext(
       "view-title"
     )
     .innerHTML =
-      `Folder: <b>${escapeHtml(mainKey)}</b> ➔ Route: <b>${escapeHtml(subKey)}</b>`;
+      `Folder: <b>${escapeHtml(savedMain)}</b> ➔ Route: <b>${escapeHtml(savedSub)}</b>`;
 
 
-  const completed =
-    await runActivityLoader(
-      "route",
-      mainKey,
-      subKey
+  renderSpreadsheetViewGrid(
+    projectDatabase[savedMain][savedSub]
+  );
+
+  setActivityUrl(
+    "viewing",
+    savedMain,
+    savedSub
+  );
+
+}
+
+
+calculateGlobalMetrics();
+```
+
+}
+);
+
+/* ============================================================
+NETWORK
+============================================================ */
+
+window.addEventListener(
+"offline",
+verifyOnlineStatus
+);
+
+window.addEventListener(
+"online",
+verifyOnlineStatus
+);
+
+/* ============================================================
+PASTE EVENT
+FAST LARGE-DATA VERSION
+============================================================ */
+
+document
+.getElementById(
+"paste-input"
+)
+.addEventListener(
+"paste",
+event => {
+
+```
+  clipboardHtmlBuffer = "";
+
+  strikethroughRowCache = null;
+
+
+  if (
+    event.clipboardData
+  ) {
+
+    const htmlData =
+      event.clipboardData.getData(
+        "text/html"
+      );
+
+
+    if (
+      htmlData
+    ) {
+
+      clipboardHtmlBuffer =
+        htmlData;
+
+    }
+
+  }
+
+
+  setTimeout(
+    parsePastedStreamForAssignees,
+    50
+  );
+
+}
+```
+
+);
+
+let assigneeParseTimer = null;
+
+document
+.getElementById(
+"paste-input"
+)
+.addEventListener(
+"input",
+() => {
+
+```
+  clearTimeout(
+    assigneeParseTimer
+  );
+
+
+  assigneeParseTimer =
+    setTimeout(
+      () => {
+
+        parsePastedStreamForAssignees();
+
+      },
+      150
+    );
+
+}
+```
+
+);
+
+/* ============================================================
+PARSE PASTED DATA
+============================================================ */
+
+function parsePastedStreamForAssignees() {
+
+const rawText =
+document.getElementById(
+"paste-input"
+).value;
+
+const container =
+document.getElementById(
+"assignee-selector-box"
+);
+
+const pillsList =
+document.getElementById(
+"assignee-pills-list"
+);
+
+if (
+!rawText.trim()
+) {
+
+```
+container.classList.add(
+  "hidden"
+);
+
+detectedAssignees = [];
+
+selectedAssignees =
+  new Set();
+
+return;
+```
+
+}
+
+const lines =
+rawText
+.split(/\r?\n/)
+.filter(
+line =>
+line.length > 0
+);
+
+if (
+!lines.length
+) {
+
+```
+container.classList.add(
+  "hidden"
+);
+
+return;
+```
+
+}
+
+parsedRowsStream =
+lines.map(
+line =>
+line
+.split("\t")
+.map(
+cell =>
+cell.trim()
+)
+);
+
+/* ==========================================================
+Find the actual header row.
+
+```
+ We inspect the first 10 rows.
+ No masterHeaders are used.
+ ========================================================== */
+```
+
+detectedHeaderRowIdx = -1;
+
+detectedAssigneeColIdx = -1;
+
+detectedHeaders = [];
+
+for (
+let rowIndex = 0;
+
+```
+rowIndex <
+Math.min(
+  parsedRowsStream.length,
+  10
+);
+
+rowIndex++
+```
+
+) {
+
+```
+const row =
+  parsedRowsStream[
+    rowIndex
+  ];
+
+
+const assigneeIndex =
+  row.findIndex(
+    isAssigneeHeader
+  );
+
+
+if (
+  assigneeIndex !== -1
+) {
+
+  detectedHeaderRowIdx =
+    rowIndex;
+
+  detectedAssigneeColIdx =
+    assigneeIndex;
+
+  detectedHeaders =
+    row.map(
+      cell =>
+        cell.trim()
+    );
+
+  break;
+
+}
+```
+
+}
+
+/* ==========================================================
+If no Assignee/Annotator/Coworker header is found,
+still try to identify a sensible header row.
+========================================================== */
+
+if (
+detectedHeaderRowIdx === -1
+) {
+
+```
+const candidateIndex =
+  parsedRowsStream.findIndex(
+    row =>
+      row.length >= 2 &&
+      row.some(
+        cell =>
+          normalizeHeader(cell) ===
+            "location name" ||
+          normalizeHeader(cell) ===
+            "location description" ||
+          normalizeHeader(cell) ===
+            "video name" ||
+          normalizeHeader(cell) ===
+            "site id"
+      )
+  );
+
+
+if (
+  candidateIndex !== -1
+) {
+
+  detectedHeaderRowIdx =
+    candidateIndex;
+
+  detectedHeaders =
+    parsedRowsStream[
+      candidateIndex
+    ].map(
+      cell =>
+        cell.trim()
+    );
+
+} else {
+
+  detectedHeaderRowIdx = 0;
+
+  detectedHeaders =
+    parsedRowsStream[0].map(
+      cell =>
+        cell.trim()
+    );
+
+}
+```
+
+}
+
+/* ==========================================================
+Search Assignee/Annotator/Coworker again from
+the selected actual header.
+========================================================== */
+
+if (
+detectedHeaders.length
+) {
+
+```
+detectedAssigneeColIdx =
+  detectedHeaders.findIndex(
+    isAssigneeHeader
+  );
+```
+
+}
+
+/* ==========================================================
+Extract unique assignees.
+========================================================== */
+
+const assigneeSet =
+new Set();
+
+const startRow =
+detectedHeaderRowIdx + 1;
+
+if (
+detectedAssigneeColIdx !== -1
+) {
+
+```
+for (
+  let rowIndex = startRow;
+
+  rowIndex <
+  parsedRowsStream.length;
+
+  rowIndex++
+) {
+
+  const row =
+    parsedRowsStream[
+      rowIndex
+    ];
+
+
+  const value =
+    row[
+      detectedAssigneeColIdx
+    ];
+
+
+  if (
+    value &&
+    value.trim()
+  ) {
+
+    const cleanValue =
+      value.trim();
+
+
+    if (
+      !isAssigneeHeader(
+        cleanValue
+      )
+    ) {
+
+      assigneeSet.add(
+        cleanValue
+      );
+
+    }
+
+  }
+
+}
+```
+
+}
+
+detectedAssignees =
+Array.from(
+assigneeSet
+);
+
+/* ==========================================================
+Preserve the user's current Assignee selection
+when the parser runs again before processing.
+
+```
+ If there is no existing selection, select all
+ Assignees by default.
+ ========================================================== */
+```
+
+const previousSelection =
+new Set(
+selectedAssignees
+);
+
+if (
+previousSelection.size > 0
+) {
+
+```
+const preservedSelection =
+  detectedAssignees.filter(
+    name =>
+      previousSelection.has(
+        name
+      )
+  );
+
+
+selectedAssignees =
+  new Set(
+    preservedSelection.length
+      ? preservedSelection
+      : detectedAssignees
+  );
+```
+
+} else {
+
+```
+selectedAssignees =
+  new Set(
+    detectedAssignees
+  );
+```
+
+}
+
+/* ==========================================================
+Auto detect route from actual pasted header if available.
+========================================================== */
+
+const routeColumn =
+findRouteColumn(
+detectedHeaders
+);
+
+if (
+routeColumn !== -1 &&
+parsedRowsStream.length >
+detectedHeaderRowIdx + 1
+) {
+
+```
+const detectedRoute =
+  parsedRowsStream[
+    detectedHeaderRowIdx + 1
+  ][routeColumn] || "";
+
+
+const routeInput =
+  document.getElementById(
+    "sub-sheet-input"
+  );
+
+
+if (
+  routeInput &&
+  !routeInput.value.trim() &&
+  detectedRoute.trim()
+) {
+
+  routeInput.value =
+    detectedRoute.trim();
+
+}
+```
+
+}
+
+/* ==========================================================
+Render Assignee selector.
+========================================================== */
+
+renderAssigneeSelector();
+
+}
+
+/* ============================================================
+ASSIGNEE SELECTOR
+============================================================ */
+
+function renderAssigneeSelector() {
+
+const container =
+document.getElementById(
+"assignee-selector-box"
+);
+
+const pillsList =
+document.getElementById(
+"assignee-pills-list"
+);
+
+const count =
+document.getElementById(
+"assignee-count"
+);
+
+if (
+!detectedAssignees.length
+) {
+
+```
+container.classList.add(
+  "hidden"
+);
+
+return;
+```
+
+}
+
+pillsList.innerHTML = "";
+
+count.textContent =
+`${detectedAssignees.length} found`;
+
+/* ==========================================================
+ALL ASSIGNEES
+========================================================== */
+
+const allPill =
+document.createElement(
+"div"
+);
+
+allPill.className =
+"assignee-pill";
+
+const allSelected =
+selectedAssignees.size ===
+detectedAssignees.length;
+
+if (allSelected) {
+
+```
+allPill.classList.add(
+  "all-selected"
+);
+```
+
+}
+
+allPill.textContent =
+"All Assignees";
+
+allPill.title =
+"Select all assignees";
+
+allPill.addEventListener(
+"click",
+() => {
+
+```
+  selectedAssignees =
+    new Set(
+      detectedAssignees
+    );
+
+  renderAssigneeSelector();
+
+}
+```
+
+);
+
+pillsList.appendChild(
+allPill
+);
+
+/* ==========================================================
+INDIVIDUAL ASSIGNEES
+========================================================== */
+
+detectedAssignees.forEach(
+name => {
+
+```
+  const pill =
+    document.createElement(
+      "div"
     );
 
 
-  if (!completed) {
+  pill.className =
+    "assignee-pill";
+
+
+  if (
+    selectedAssignees.has(
+      name
+    )
+  ) {
+
+    pill.classList.add(
+      "selected"
+    );
+
+  }
+
+
+  pill.textContent =
+    name;
+
+
+  pill.title =
+    "Click to select or remove this assignee";
+
+
+  pill.addEventListener(
+    "click",
+    () => {
+
+      toggleAssignee(
+        name
+      );
+
+    }
+  );
+
+
+  pillsList.appendChild(
+    pill
+  );
+
+}
+```
+
+);
+
+container.classList.remove(
+"hidden"
+);
+
+}
+
+/* ============================================================
+TOGGLE ASSIGNEE
+============================================================ */
+
+function toggleAssignee(
+name
+) {
+
+if (
+selectedAssignees.has(
+name
+)
+) {
+
+```
+selectedAssignees.delete(
+  name
+);
+```
+
+} else {
+
+```
+selectedAssignees.add(
+  name
+);
+```
+
+}
+
+renderAssigneeSelector();
+
+}
+
+/* ============================================================
+THEME
+============================================================ */
+
+document
+.getElementById(
+"theme-toggle-btn"
+)
+.addEventListener(
+"click",
+() => {
+
+```
+  const currentTheme =
+    document.documentElement
+      .getAttribute(
+        "data-theme"
+      );
+
+
+  const targetTheme =
+    currentTheme === "light"
+      ? "dark"
+      : "light";
+
+
+  document.documentElement
+    .setAttribute(
+      "data-theme",
+      targetTheme
+    );
+
+
+  document
+    .getElementById(
+      "theme-toggle-btn"
+    )
+    .textContent =
+      targetTheme === "dark"
+        ? "☼ Light Mode"
+        : "◑ Dark Mode";
+
+
+  localStorage.setItem(
+    "appTheme",
+    targetTheme
+  );
+
+}
+```
+
+);
+
+/* ============================================================
+ADD NEW FOLDER
+============================================================ */
+
+document
+.getElementById(
+"add-folder-btn"
+)
+.addEventListener(
+"click",
+() => {
+
+```
+  const name =
+    prompt(
+      "Enter the new Main Folder / Sheet Name:"
+    );
+
+
+  if (
+    name === null
+  ) {
 
     return;
 
   }
 
 
-  const routeData =
+  const cleanName =
+    name.trim();
+
+
+  if (
+    !cleanName
+  ) {
+
+    alert(
+      "Folder / Sheet Name cannot be empty."
+    );
+
+    return;
+
+  }
+
+
+  if (
+    !projectDatabase[
+      cleanName
+    ]
+  ) {
+
     projectDatabase[
-      mainKey
-    ][subKey];
+      cleanName
+    ] = {};
+
+  }
 
 
-  renderSpreadsheetViewGrid(
-    routeData
+  localStorage.setItem(
+    "projectDatabase",
+    JSON.stringify(
+      projectDatabase
+    )
   );
 
 
-  calculateGlobalMetrics();
+  updateDropdownMenu();
+
+
+  const select =
+    document.getElementById(
+      "main-sheet-select"
+    );
+
+
+  select.value =
+    cleanName;
+
 
   rebuildWorkbookTree();
 
 
-  setActivityUrl(
-    "viewing",
-    mainKey,
-    subKey
+  calculateGlobalMetrics();
+
+}
+```
+
+);
+
+/* ============================================================
+FOLDER SELECT
+============================================================ */
+
+document
+.getElementById(
+"main-sheet-select"
+)
+.addEventListener(
+"change",
+event => {
+
+```
+  /* Selecting an existing folder
+     automatically fills the selected value. */
+
+  if (
+    event.target.value
+  ) {
+
+    event.target.value =
+      event.target.value;
+
+  }
+
+}
+```
+
+);
+
+/* ============================================================
+UPDATE FOLDER DROPDOWN
+============================================================ */
+
+function updateDropdownMenu() {
+
+const select =
+document.getElementById(
+"main-sheet-select"
+);
+
+if (!select) {
+return;
+}
+
+const currentValue =
+select.value;
+
+select.innerHTML = `
+
+```
+<option value="">
+  -- Select Existing Folder --
+</option>
+```
+
+`;
+
+Object.keys(
+projectDatabase
+)
+.sort(
+(a, b) =>
+a.localeCompare(
+b
+)
+)
+.forEach(
+mainKey => {
+
+```
+    const option =
+      document.createElement(
+        "option"
+      );
+
+
+    option.value =
+      mainKey;
+
+
+    option.textContent =
+      mainKey;
+
+
+    select.appendChild(
+      option
+    );
+
+  }
+);
+```
+
+if (
+currentValue &&
+projectDatabase[
+currentValue
+]
+) {
+
+```
+select.value =
+  currentValue;
+```
+
+}
+
+}
+
+/* ============================================================
+CLOSE LOADER
+============================================================ */
+
+document
+.getElementById(
+"btn-close-loader"
+)
+.addEventListener(
+"click",
+() => {
+
+```
+  cancelLoader();
+
+}
+```
+
+);
+
+/* ============================================================
+CLOSE ACTIVE WORKSPACE
+============================================================ */
+
+document
+.getElementById(
+"btn-close-view"
+)
+.addEventListener(
+"click",
+() => {
+
+```
+  loaderCancelled = true;
+
+  loaderRunId++;
+
+
+  activeMainSheet = "";
+
+  activeSubSheet = "";
+
+
+  localStorage.removeItem(
+    "activeMainSheet"
   );
+
+  localStorage.removeItem(
+    "activeSubSheet"
+  );
+
+
+  document
+    .getElementById(
+      "view-navigation-row"
+    )
+    .classList.add(
+      "hidden"
+    );
+
+
+  document
+    .getElementById(
+      "view-title"
+    )
+    .textContent =
+      "Active Workspace View";
+
+
+  document
+    .getElementById(
+      "view-range-indicator"
+    )
+    .textContent = "";
+
+
+  document
+    .getElementById(
+      "grid-output-view"
+    )
+    .innerHTML = `
+
+      <div class="splash-container">
+
+        <div class="splash-text">
+          Paste sheet data stream or select a subfolder node
+          from the workbook index to mount sheet records.
+        </div>
+
+      </div>
+
+    `;
 
 
   hideLoader();
 
-}
+  calculateGlobalMetrics();
 
+}
+```
+
+);
 
 /* ============================================================
-   RENDER SPREADSHEET
-   ============================================================ */
+PROCESS AND STORE DATA
+============================================================ */
 
-function renderSpreadsheetViewGrid(
-  sheetObject
-) {
+document
+.getElementById(
+"process-entry-btn"
+)
+.addEventListener(
+"click",
+async () => {
 
-  const display =
-    document.getElementById(
-      "grid-output-view"
-    );
-
-
-  const rangeIndicator =
-    document.getElementById(
-      "view-range-indicator"
-    );
-
-
+```
   if (
-    !sheetObject
+    !verifyOnlineStatus()
   ) {
-
-    display.innerHTML = `
-
-      <div style="padding:12px;color:var(--text-dark);">
-        No workspace data found.
-      </div>
-
-    `;
-
-    rangeIndicator.textContent = "";
 
     return;
 
   }
 
 
-  const headers =
-    sheetObject.headers || [];
+  const folderSelect =
+    document.getElementById(
+      "main-sheet-select"
+    );
 
 
-  const rows =
-    sheetObject.rows || [];
+  const mainName =
+    folderSelect.value.trim();
+
+
+  const subName =
+    document
+      .getElementById(
+        "sub-sheet-input"
+      )
+      .value
+      .trim();
+
+
+  const rawDataText =
+    document
+      .getElementById(
+        "paste-input"
+      )
+      .value;
 
 
   if (
-    !rows.length
+    !mainName
   ) {
 
-    display.innerHTML = `
-
-      <div style="padding:12px;color:var(--text-dark);">
-        No row data present in this route.
-      </div>
-
-    `;
-
-    rangeIndicator.textContent = "";
+    alert(
+      "Please select or create a Main Folder / Sheet Name."
+    );
 
     return;
 
   }
 
 
-  rangeIndicator.textContent =
-    `Displaying total ${rows.length} record entries.`;
+  if (
+    !subName
+  ) {
+
+    alert(
+      "Please provide the Sub Route / Route Identifier."
+    );
+
+    return;
+
+  }
 
 
-  let tableHtml =
-    `<table><thead><tr>`;
+  if (
+    !rawDataText.trim()
+  ) {
+
+    alert(
+      "Please paste the Google Sheet data first."
+    );
+
+    return;
+
+  }
 
 
-  headers.forEach(
-    header => {
+  /* Re-parse immediately before processing.
+     This prevents stale Assignee indexes. */
 
-      const cleanHeader =
-        displayHeaderName(
-          header
-        );
+  parsePastedStreamForAssignees();
 
 
-      const isAssignee =
-        isAssigneeHeader(
-          cleanHeader
-        );
+  const button =
+    document.getElementById(
+      "process-entry-btn"
+    );
 
 
-      tableHtml += `
+  button.disabled = true;
 
-        <th
-          title="${escapeHtml(cleanHeader)}"
-          ${
-            isAssignee
-              ? 'data-assignee-header="true"'
-              : ""
-          }
-        >
-          ${escapeHtml(cleanHeader)}
-        </th>
 
-      `;
-
-    }
+  setActivityUrl(
+    "processing",
+    mainName,
+    subName
   );
 
 
-  tableHtml +=
-    `</tr></thead><tbody>`;
+  showLoader(
+    "process",
+    mainName,
+    subName
+  );
 
 
-  rows.forEach(
-    rowObject => {
+  /* Give the browser one rendering cycle to
+     actually display the rotating loader before
+     heavy data processing begins. */
 
-      const rowCells =
-        Array.isArray(
-          rowObject
+  await new Promise(
+    resolve =>
+      requestAnimationFrame(
+        () =>
+          requestAnimationFrame(
+            resolve
+          )
+      )
+  );
+
+
+  try {
+
+    /* ======================================================
+       READING
+       ====================================================== */
+
+    setLoaderStage(
+      "reading"
+    );
+
+
+    setActivityUrl(
+      "reading",
+      mainName,
+      subName
+    );
+
+
+    /* The data was already parsed by
+       parsePastedStreamForAssignees()
+       immediately before processing.
+
+       Reuse that parsed array instead of
+       splitting and trimming the entire
+       dataset a second time. */
+
+    const rows =
+      parsedRowsStream;
+
+
+    if (
+      !rows ||
+      !rows.length
+    ) {
+
+      throw new Error(
+        "No data rows were detected."
+      );
+
+    }
+
+
+    /* Use the actual detected header. */
+
+    let headerRowIndex =
+      detectedHeaderRowIdx;
+
+
+    let headers =
+      detectedHeaders.slice();
+
+
+    /* Safety fallback if user
+       changed the textarea. */
+
+    if (
+      !headers.length ||
+      headerRowIndex < 0
+    ) {
+
+      headerRowIndex = 0;
+
+      headers =
+        rows[0].map(
+          cell =>
+            cell.trim()
+        );
+
+    }
+
+
+    /* Remove completely empty headers
+       only if they are trailing. */
+
+    while (
+      headers.length > 1 &&
+      !headers[
+        headers.length - 1
+      ].trim()
+    ) {
+
+      headers.pop();
+
+    }
+
+
+    /* Make sure every header has
+       something unique internally.
+
+       Display name remains unchanged. */
+
+    headers =
+      makeUniqueHeaders(
+        headers
+      );
+
+
+    /* Actual Assignee column. */
+
+    let assigneeIndex =
+      headers.findIndex(
+        isAssigneeHeader
+      );
+
+
+    /* If original header was duplicated
+       with internal suffix, try original
+       text as well. */
+
+    if (
+      assigneeIndex === -1
+    ) {
+
+      assigneeIndex =
+        headers.findIndex(
+          header =>
+            isAssigneeHeader(
+              stripInternalDuplicateSuffix(
+                header
+              )
+            )
+        );
+
+    }
+
+
+    /* ======================================================
+       ANALYSING
+       ====================================================== */
+
+    setLoaderStage(
+      "analysing"
+    );
+
+
+    setActivityUrl(
+      "analysing",
+      mainName,
+      subName
+    );
+
+
+    buildStrikethroughRowCache();
+
+
+    const extractedRows =
+      [];
+
+
+    const selected =
+      Array.from(
+        selectedAssignees
+      );
+
+
+    /* If there are assignees detected
+       but none are selected, stop. */
+
+    if (
+      assigneeIndex !== -1 &&
+      detectedAssignees.length > 0 &&
+      selected.length === 0
+    ) {
+
+      throw new Error(
+        "Please select at least one Assignee."
+      );
+
+    }
+
+
+    /* FAST ROW EXTRACTION.
+
+       Assignee filtering happens before an
+       aligned row is allocated.
+
+       A Set is used for constant-time lookup. */
+
+    const selectedLookup =
+      new Set(
+        selected.map(
+          name =>
+            String(
+              name
+            )
+              .trim()
+              .toLowerCase()
         )
-          ? rowObject
-          : (
-              rowObject.data || []
-            );
+      );
 
 
-      const isStriked =
-        !Array.isArray(
-          rowObject
-        ) &&
-        rowObject.isStrikethrough === true;
+    const hasAssigneeFilter =
+      assigneeIndex !== -1 &&
+      selectedLookup.size > 0;
 
 
-      tableHtml += `
+    const headerLength =
+      headers.length;
 
-        <tr
-          class="${
-            isStriked
-              ? "row-strikethrough"
-              : ""
-          }"
-        >
 
-      `;
+    for (
+      let rowIndex =
+        headerRowIndex + 1;
+
+      rowIndex <
+      rows.length;
+
+      rowIndex++
+    ) {
+
+      /* Keep the browser responsive during
+         very large imports.
+
+         Every 500 rows we yield back to the
+         browser so the loader can animate. */
+
+      if (
+        (rowIndex - headerRowIndex) % 500 === 0
+      ) {
+
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              0
+            )
+        );
+
+      }
+
+
+      const cells =
+        rows[rowIndex];
+
+
+      if (
+        !cells ||
+        cells.length === 0
+      ) {
+
+        continue;
+
+      }
+
+
+      /* Filter by Assignee FIRST.
+         This avoids creating an entire row
+         for data that will be discarded. */
+
+      if (
+        assigneeIndex !== -1
+      ) {
+
+        const rowAssignee =
+          cells[
+            assigneeIndex
+          ];
+
+
+        if (
+          !rowAssignee
+        ) {
+
+          continue;
+
+        }
+
+
+        if (
+          hasAssigneeFilter &&
+          !selectedLookup.has(
+            String(
+              rowAssignee
+            )
+              .trim()
+              .toLowerCase()
+          )
+        ) {
+
+          continue;
+
+        }
+
+      }
+
+
+      const aligned =
+        new Array(
+          headerLength
+        );
 
 
       for (
-        let index = 0;
+        let columnIndex = 0;
 
-        index <
-        headers.length;
+        columnIndex <
+        headerLength;
 
-        index++
+        columnIndex++
       ) {
 
-        const value =
-          rowCells[index] !== undefined
-            ? rowCells[index]
+        aligned[
+          columnIndex
+        ] =
+          cells[
+            columnIndex
+          ] !== undefined
+            ? cells[
+                columnIndex
+              ]
             : "";
 
-
-        tableHtml += `
-
-          <td
-            title="${escapeHtml(value)}"
-          >
-            ${escapeHtml(value)}
-          </td>
-
-        `;
-
       }
 
 
-      tableHtml +=
-        `</tr>`;
-
-    }
-  );
-
-
-  tableHtml +=
-    `</tbody></table>`;
-
-
-  display.innerHTML =
-    tableHtml;
-
-}
-
-
-/* ============================================================
-   OPEN GOOGLE SHEETS
-   ============================================================ */
-
-document
-  .getElementById(
-    "btn-create-gsheet"
-  )
-  .addEventListener(
-    "click",
-    () => {
-
-      if (
-        !verifyOnlineStatus()
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        !activeMainSheet ||
-        !activeSubSheet ||
-        !projectDatabase[
-          activeMainSheet
-        ] ||
-        !projectDatabase[
-          activeMainSheet
-        ][activeSubSheet]
-      ) {
-
-        return;
-
-      }
-
-
-      const workbook =
-        projectDatabase[
-          activeMainSheet
-        ][activeSubSheet];
-
-
-      const headers =
-        workbook.headers || [];
-
-
-      const headerText =
-        headers
-          .map(
-            header =>
-              displayHeaderName(
-                header
-              )
-          )
-          .join("\t");
-
-
-      const rows =
-        (workbook.rows || [])
-          .map(
-            rowObject => {
-
-              const cells =
-                Array.isArray(
-                  rowObject
-                )
-                  ? rowObject
-                  : (
-                      rowObject.data ||
-                      []
-                    );
-
-
-      return headers
-        .map(
-          (
-            header,
-            index
-          ) =>
-            cells[index] !==
-              undefined
-              ? cells[index]
-              : ""
-        )
-        .join("\t");
-
-            }
-          );
-
-
-      const fullText =
-        [
-          headerText,
-          ...rows
-        ].join("\n");
-
-
-      navigator.clipboard
-        .writeText(
-          fullText
-        )
-        .then(
-          () => {
-
-            alert(
-              "Formatted data copied to clipboard! Opening Google Sheets... Press Ctrl+V to paste."
-            );
-
-
-            window.open(
-              "https://sheets.new",
-              "_blank"
-            );
-
-          }
-        )
-        .catch(
-          error => {
-
-            console.error(
-              "Clipboard error:",
-              error
-            );
-
-
-            alert(
-              "Unable to copy automatically. Please allow clipboard access."
-            );
-
-          }
+      const strike =
+        detectHtmlStrikethrough(
+          rowIndex
         );
 
-    }
-  );
+
+      extractedRows.push({
+
+        data:
+          aligned,
+
+        isStrikethrough:
+          strike
+
+      });
 
 
-/* ============================================================
-   EXPORT CSV
-   ============================================================ */
-
-document
-  .getElementById(
-    "btn-export-csv"
-  )
-  .addEventListener(
-    "click",
-    () => {
-
-      if (
-        !verifyOnlineStatus()
-      ) {
-
-        return;
-
-      }
-
+      /* Yield occasionally during very large
+         imports so the browser remains responsive. */
 
       if (
-        !activeMainSheet ||
-        !activeSubSheet ||
-        !projectDatabase[
-          activeMainSheet
-        ] ||
-        !projectDatabase[
-          activeMainSheet
-        ][activeSubSheet]
+        rowIndex % 5000 === 0
       ) {
 
-        return;
-
-      }
-
-
-      const workbook =
-        projectDatabase[
-          activeMainSheet
-        ][activeSubSheet];
-
-
-      const sanitize =
-        value => {
-
-          if (
-            value === null ||
-            value === undefined
-          ) {
-
-            return '""';
-
-          }
-
-
-          return `"${String(value)
-            .replace(
-              /"/g,
-              '""'
-            )}"`;
-
-        };
-
-
-      const headers =
-        workbook.headers || [];
-
-
-      const headerRow =
-        headers
-          .map(
-            header =>
-              sanitize(
-                displayHeaderName(
-                  header
-                )
-              )
-          )
-          .join(",");
-
-
-      const dataRows =
-        (workbook.rows || [])
-          .map(
-            rowObject => {
-
-              const cells =
-                Array.isArray(
-                  rowObject
-                )
-                  ? rowObject
-                  : (
-                      rowObject.data ||
-                      []
-                    );
-
-
-      return headers
-        .map(
-          (
-            header,
-            index
-          ) =>
-            sanitize(
-              cells[index] !==
-                undefined
-                ? cells[index]
-                : ""
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              0
             )
-        )
-        .join(",");
-
-            }
-          );
-
-
-      const csv =
-        [
-          headerRow,
-          ...dataRows
-        ].join("\n");
-
-
-      const blob =
-        new Blob(
-          [csv],
-          {
-            type:
-              "text/csv;charset=utf-8;"
-          }
         );
-
-
-      const link =
-        document.createElement(
-          "a"
-        );
-
-
-      link.href =
-        URL.createObjectURL(
-          blob
-        );
-
-
-      link.download =
-        `${activeMainSheet}_${activeSubSheet}.csv`
-          .replace(
-            /[^a-z0-9_.-]/gi,
-            "_"
-          )
-          .toLowerCase();
-
-
-      document.body.appendChild(
-        link
-      );
-
-
-      link.click();
-
-
-      document.body.removeChild(
-        link
-      );
-
-
-      setTimeout(
-        () =>
-          URL.revokeObjectURL(
-            link.href
-          ),
-        1000
-      );
-
-    }
-  );
-
-
-/* ============================================================
-   GLOBAL METRICS
-   ============================================================ */
-
-function calculateGlobalMetrics() {
-
-  let folders = 0;
-
-  let routes = 0;
-
-  let records = 0;
-
-  let strikethrough = 0;
-
-
-  Object.keys(
-    projectDatabase
-  ).forEach(
-    mainKey => {
-
-      folders++;
-
-
-      const folder =
-        projectDatabase[
-          mainKey
-        ] || {};
-
-
-      Object.keys(
-        folder
-      ).forEach(
-        subKey => {
-
-          routes++;
-
-
-          const route =
-            folder[
-              subKey
-            ] || {};
-
-
-          const rows =
-            route.rows || [];
-
-
-          records +=
-            rows.length;
-
-
-          strikethrough +=
-            rows.filter(
-              rowObject => {
-
-                return (
-                  !Array.isArray(
-                    rowObject
-                  ) &&
-                  rowObject &&
-                  rowObject.isStrikethrough === true
-                );
-
-              }
-            ).length;
-
-        }
-      );
-
-    }
-  );
-
-
-  let activeFolderRecords = 0;
-
-
-  if (
-    activeMainSheet &&
-    projectDatabase[
-      activeMainSheet
-    ]
-  ) {
-
-    const activeFolder =
-      projectDatabase[
-        activeMainSheet
-      ] || {};
-
-
-    Object.keys(
-      activeFolder
-    ).forEach(
-      subKey => {
-
-        const route =
-          activeFolder[
-            subKey
-          ] || {};
-
-
-        activeFolderRecords +=
-          (
-            route.rows || []
-          ).length;
 
       }
+
+    }
+
+
+    if (
+      !extractedRows.length
+    ) {
+
+      throw new Error(
+        "No valid rows matching the selected Assignee were found."
+      );
+
+    }
+
+
+    /* ======================================================
+       ARRANGING
+       ====================================================== */
+
+    setLoaderStage(
+      "arranging"
     );
 
-  }
+
+    setActivityUrl(
+      "arranging",
+      mainName,
+      subName
+    );
 
 
-  let activeSubRouteRecords = 0;
+    if (
+      !projectDatabase[
+        mainName
+      ]
+    ) {
 
-  let activeSubRouteStrikes = 0;
-
-
-  if (
-    activeMainSheet &&
-    activeSubSheet &&
-    projectDatabase[
-      activeMainSheet
-    ] &&
-    projectDatabase[
-      activeMainSheet
-    ][
-      activeSubSheet
-    ]
-  ) {
-
-    const activeRoute =
       projectDatabase[
-        activeMainSheet
-      ][
-        activeSubSheet
-      ] || {};
+        mainName
+      ] = {};
+
+    }
 
 
-    const activeRows =
-      activeRoute.rows || [];
+    /* First time route. */
+
+    if (
+      !projectDatabase[
+        mainName
+      ][subName]
+    ) {
+
+      projectDatabase[
+        mainName
+      ][subName] = {
+
+        headers:
+          headers,
+
+        rows:
+          extractedRows
+
+      };
+
+    } else {
+
+      /* Existing route.
+
+         Merge headers dynamically.
+         This allows future pasted sheets
+         to have changed columns/order. */
+
+      const existing =
+        projectDatabase[
+          mainName
+        ][subName];
 
 
-    activeSubRouteRecords =
-      activeRows.length;
+      const merged =
+        mergeSheetData(
+          existing.headers || [],
+          existing.rows || [],
+          headers,
+          extractedRows
+        );
 
 
-    activeSubRouteStrikes =
-      activeRows.filter(
-        rowObject => {
+      projectDatabase[
+        mainName
+      ][subName] = merged;
 
-          return (
-            !Array.isArray(
-              rowObject
-            ) &&
-            rowObject &&
-            rowObject.isStrikethrough === true
-          );
-
-        }
-      ).length;
-
-  }
+    }
 
 
-  const grandTotal =
-    document.getElementById(
-      "stat-grand-total"
+    /* ======================================================
+       STORING
+       ====================================================== */
+
+    setLoaderStage(
+      "storing"
     );
 
 
-  const mainTotal =
-    document.getElementById(
-      "stat-main-total"
+    setActivityUrl(
+      "storing",
+      mainName,
+      subName
     );
 
 
-  const subTotal =
-    document.getElementById(
-      "stat-sub-total"
+    localStorage.setItem(
+      "projectDatabase",
+      JSON.stringify(
+        projectDatabase
+      )
     );
 
 
-  const strikeTotal =
-    document.getElementById(
-      "stat-strike-total"
+    /* ======================================================
+       SUCCESS
+       ====================================================== */
+
+    setLoaderStage(
+      "success"
     );
 
 
-  if (
-    grandTotal
-  ) {
-
-    grandTotal.textContent =
-      `${records} Rows`;
-
-  }
-
-
-  if (
-    mainTotal
-  ) {
-
-    mainTotal.textContent =
-      `${activeFolderRecords} Rows`;
-
-  }
-
-
-  if (
-    subTotal
-  ) {
-
-    subTotal.textContent =
-      `${activeSubRouteRecords} Rows`;
-
-  }
-
-
-  if (
-    strikeTotal
-  ) {
-
-    const displayedStrikes =
-      activeMainSheet &&
-      activeSubSheet
-        ? activeSubRouteStrikes
-        : strikethrough;
-
-
-    strikeTotal.textContent =
-      `${displayedStrikes} Rows`;
-
-  }
-
-
-  const folderMetric =
-    document.getElementById(
-      "metric-folder-count"
+    setActivityUrl(
+      "success",
+      mainName,
+      subName
     );
 
 
-  const routeMetric =
-    document.getElementById(
-      "metric-route-count"
+    /* Update directory. */
+
+    updateDropdownMenu();
+
+    rebuildWorkbookTree();
+
+
+    /* Render FIRST. */
+
+    activeMainSheet =
+      mainName;
+
+    activeSubSheet =
+      subName;
+
+
+    localStorage.setItem(
+      "activeMainSheet",
+      mainName
+    );
+
+    localStorage.setItem(
+      "activeSubSheet",
+      subName
     );
 
 
-  const recordMetric =
-    document.getElementById(
-      "metric-record-count"
+    document
+      .getElementById(
+        "view-navigation-row"
+      )
+      .classList.remove(
+        "hidden"
+      );
+
+
+    document
+      .getElementById(
+        "view-title"
+      )
+      .innerHTML =
+        `Folder: <b>${escapeHtml(mainName)}</b> ➔ Route: <b>${escapeHtml(subName)}</b>`;
+
+
+    renderSpreadsheetViewGrid(
+      projectDatabase[
+        mainName
+      ][subName]
     );
 
 
-  const strikeMetric =
-    document.getElementById(
-      "metric-strike-count"
+    calculateGlobalMetrics();
+
+
+    /* Flash Assignee header twice. */
+
+    flashAssigneeHeader();
+
+
+    /* Clean input fields. */
+
+    document
+      .getElementById(
+        "paste-input"
+      )
+      .value = "";
+
+
+    document
+      .getElementById(
+        "sub-sheet-input"
+      )
+      .value = "";
+
+
+    clipboardHtmlBuffer = "";
+
+    strikethroughRowCache = null;
+
+    parsedRowsStream = [];
+
+    detectedAssignees = [];
+
+    selectedAssignees =
+      new Set();
+
+    detectedHeaders = [];
+
+    detectedAssigneeColIdx =
+      -1;
+
+    detectedHeaderRowIdx =
+      -1;
+
+
+    /* Close Assignee card automatically. */
+
+    document
+      .getElementById(
+        "assignee-selector-box"
+      )
+      .classList.add(
+        "hidden"
+      );
+
+
+    /* Hide loader only after
+       actual table is mounted. */
+
+    hideLoader();
+
+
+    setActivityUrl(
+      "viewing",
+      mainName,
+      subName
     );
 
 
-  if (
-    folderMetric
-  ) {
+  } catch (error) {
 
-    folderMetric.textContent =
-      folders;
-
-  }
+    console.error(
+      "Processing error:",
+      error
+    );
 
 
-  if (
-    routeMetric
-  ) {
-
-    routeMetric.textContent =
-      routes;
-
-  }
+    hideLoader();
 
 
-  if (
-    recordMetric
-  ) {
-
-    recordMetric.textContent =
-      records;
-
-  }
+    setActivityUrl(
+      "error",
+      mainName,
+      subName
+    );
 
 
-  if (
-    strikeMetric
-  ) {
+    alert(
+      `Unable to process the data: ${
+        error.message || error
+      }`
+    );
 
-    strikeMetric.textContent =
-      strikethrough;
+  } finally {
+
+    button.disabled = false;
 
   }
 
 }
+```
 
+);
 
 /* ============================================================
-   WIPE STORAGE
-   ============================================================ */
+MAKE UNIQUE INTERNAL HEADERS
+============================================================ */
 
-document
-  .getElementById(
-    "clear-db-btn"
-  )
-  .addEventListener(
-    "click",
-    () => {
+function makeUniqueHeaders(
+headers
+) {
 
-      if (
-        !confirm(
-          "Permanently wipe local workspace database memory?"
-        )
-      ) {
+const used =
+new Map();
 
-        return;
+return headers.map(
+original => {
 
-      }
+```
+  const clean =
+    String(
+      original ?? ""
+    ).trim();
 
 
-      loaderCancelled = true;
+  if (
+    !clean
+  ) {
 
-      loaderRunId++;
-
-
-      localStorage.removeItem(
-        "projectDatabase"
-      );
-
-
-      localStorage.removeItem(
-        "activeMainSheet"
-      );
+    const emptyCount =
+      used.get(
+        "__EMPTY__"
+      ) || 0;
 
 
-      localStorage.removeItem(
-        "activeSubSheet"
-      );
+    used.set(
+      "__EMPTY__",
+      emptyCount + 1
+    );
 
 
-      projectDatabase = {};
+    return `Column ${emptyCount + 1}`;
 
-      activeMainSheet = "";
-
-      activeSubSheet = "";
+  }
 
 
-      hideLoader();
+  const key =
+    normalizeHeader(
+      clean
+    );
 
 
-      document
-        .getElementById(
-          "view-navigation-row"
-        )
-        .classList.add(
-          "hidden"
-        );
+  const count =
+    used.get(
+      key
+    ) || 0;
 
 
-      document
-        .getElementById(
-          "view-title"
-        )
-        .textContent =
-          "Active Workspace View";
+  used.set(
+    key,
+    count + 1
+  );
 
 
-      document
-        .getElementById(
-          "view-range-indicator"
-        )
-        .textContent = "";
+  if (
+    count === 0
+  ) {
+
+    return clean;
+
+  }
 
 
-      document
-        .getElementById(
-          "grid-output-view"
-        )
-        .innerHTML = `
+  /* Internal duplicate marker.
+     It is removed when displaying/exporting. */
 
-          <div class="splash-container">
+  return `${clean}_dup${count}`;
 
-            <div class="splash-text">
-              Paste sheet data stream or select a subfolder node
-              from the workbook index to mount sheet records.
-            </div>
+}
+```
 
-          </div>
+);
 
-        `;
+}
+
+/* ============================================================
+STRIP INTERNAL DUPLICATE SUFFIX
+============================================================ */
+
+function stripInternalDuplicateSuffix(
+header
+) {
+
+return String(
+header ?? ""
+).replace(
+/_dup\d+$/i,
+""
+);
+
+}
+
+/* ============================================================
+HEADER DISPLAY NAME
+============================================================ */
+
+function displayHeaderName(
+header
+) {
+
+return stripInternalDuplicateSuffix(
+header
+);
+
+}
+
+/* ============================================================
+FAST HTML STRIKETHROUGH CACHE
+============================================================ */
+
+function buildStrikethroughRowCache() {
+
+strikethroughRowCache = new Set();
+
+if (
+!clipboardHtmlBuffer
+) {
+
+```
+return;
+```
+
+}
+
+try {
+
+```
+const parser =
+  new DOMParser();
 
 
-      document
-        .getElementById(
-          "paste-input"
-        )
-        .value = "";
+const doc =
+  parser.parseFromString(
+    clipboardHtmlBuffer,
+    "text/html"
+  );
 
 
-      document
-        .getElementById(
-          "sub-sheet-input"
-        )
-        .value = "";
+const htmlRows =
+  doc.querySelectorAll(
+    "tr"
+  );
 
 
-      document
-        .getElementById(
-          "assignee-selector-box"
-        )
-        .classList.add(
-          "hidden"
-        );
+htmlRows.forEach(
+  (
+    tr,
+    index
+  ) => {
+
+    const style =
+      (
+        tr.getAttribute(
+          "style"
+        ) || ""
+      ).toLowerCase();
 
 
-      clipboardHtmlBuffer = "";
-
-      strikethroughRowCache = null;
-
-      detectedAssignees = [];
-
-      selectedAssignees =
-        new Set();
+    const html =
+      tr.innerHTML.toLowerCase();
 
 
-      updateDropdownMenu();
+    if (
+      style.includes(
+        "line-through"
+      ) ||
+      html.includes(
+        "line-through"
+      ) ||
+      html.includes(
+        "<strike"
+      ) ||
+      html.includes(
+        "<del"
+      )
+    ) {
 
-      rebuildWorkbookTree();
-
-      calculateGlobalMetrics();
-
-      setActivityUrl(
-        "",
-        "",
-        ""
+      strikethroughRowCache.add(
+        index
       );
 
     }
-  );
+
+  }
+);
+```
+
+} catch (
+error
+) {
+
+```
+console.warn(
+  "Unable to build strikethrough cache:",
+  error
+);
+
+strikethroughRowCache =
+  new Set();
+```
+
+}
+
+}
+
+/* ============================================================
+FAST HTML STRIKETHROUGH DETECTION
+============================================================ */
+
+function detectHtmlStrikethrough(
+rowIndex
+) {
+
+if (
+!strikethroughRowCache
+) {
+
+```
+return false;
+```
+
+}
+
+return strikethroughRowCache.has(
+rowIndex
+);
+
+}
+ 
