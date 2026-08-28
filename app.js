@@ -4698,3 +4698,159 @@ strikeMetric.textContent =
 }
 
 }
+/* ============================================================
+WIPE STORAGE
+============================================================ */
+
+document
+.getElementById(
+"clear-db-btn"
+)
+.addEventListener(
+"click",
+() => {
+
+```
+  if (
+    !confirm(
+      "Permanently wipe local workspace database memory?"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  loaderCancelled = true;
+
+  loaderRunId++;
+
+
+  localStorage.removeItem(
+    "projectDatabase"
+  );
+
+
+  localStorage.removeItem(
+    "activeMainSheet"
+  );
+
+
+  localStorage.removeItem(
+    "activeSubSheet"
+  );
+
+
+  projectDatabase = {};
+
+  activeMainSheet = "";
+
+  activeSubSheet = "";
+
+
+  hideLoader();
+
+
+  document
+    .getElementById(
+      "view-navigation-row"
+    )
+    .classList.add(
+      "hidden"
+    );
+
+
+  document
+    .getElementById(
+      "view-title"
+    )
+    .textContent =
+      "Active Workspace View";
+
+
+  document
+    .getElementById(
+      "view-range-indicator"
+    )
+    .textContent = "";
+
+
+  document
+    .getElementById(
+      "grid-output-view"
+    )
+    .innerHTML = `
+
+      <div class="splash-container">
+
+        <div class="splash-text">
+          Paste sheet data stream or select a subfolder node
+          from the workbook index to mount sheet records.
+        </div>
+
+      </div>
+
+    `;
+
+
+  document
+    .getElementById(
+      "paste-input"
+    )
+    .value = "";
+
+
+  document
+    .getElementById(
+      "sub-sheet-input"
+    )
+    .value = "";
+
+
+  document
+    .getElementById(
+      "assignee-selector-box"
+    )
+    .classList.add(
+      "hidden"
+    );
+
+
+  clipboardHtmlBuffer = "";
+
+  strikethroughRowCache = null;
+
+  detectedAssignees = [];
+
+  selectedAssignees =
+    new Set();
+
+
+  parsedRowsStream = [];
+
+  detectedHeaders = [];
+
+  detectedAssigneeColIdx =
+    -1;
+
+  detectedHeaderRowIdx =
+    -1;
+
+
+  updateDropdownMenu();
+
+  rebuildWorkbookTree();
+
+  calculateGlobalMetrics();
+
+  setActivityUrl(
+    "",
+    "",
+    ""
+  );
+
+}
+```
+
+);
